@@ -6,8 +6,8 @@ A Chrome extension and web app that exports your Instagram saved posts and autom
 
 1. **Install the Chrome extension** from the Chrome Web Store
 2. **Open Instagram** → go to your Saved posts → click into any collection
-3. **Click Export** in the extension — the organizer opens automatically
-4. **Add your OpenAI API key** in Settings — categorization starts immediately
+3. **Click Export** in the extension → the organizer opens automatically
+4. **Add your OpenAI API key** in Settings → categorization starts immediately
 
 Posts are sorted into a folder tree (e.g. Food › Chicago Italian, Travel › Bali, Wedding › Decor) with tags and a search bar.
 
