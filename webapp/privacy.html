@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Saved Posts Organizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 60px 24px;
+    }
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .back {
+      display: inline-block;
+      color: #888;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 40px;
+    }
+    .back:hover { color: #f0f0f0; }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .updated {
+      color: #555;
+      font-size: 13px;
+      margin-bottom: 40px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 36px;
+      margin-bottom: 10px;
+      color: #f0f0f0;
+    }
+    p {
+      color: #aaa;
+      margin-bottom: 12px;
+    }
+    ul {
+      color: #aaa;
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    li { margin-bottom: 6px; }
+    a { color: #e1306c; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .highlight {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 24px 0;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a href="index.html" class="back">&larr; Back to Organizer</a>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: March 2026</p>
+
+  <div class="highlight">
+    <strong style="color:#f0f0f0">The short version:</strong> We collect nothing. All your data stays in your browser. The only external service this app contacts is OpenAI — directly from your browser, using your own API key.
+  </div>
+
+  <h2>What we collect</h2>
+  <p>Nothing. Saved Posts Organizer does not have a backend server, does not set cookies for tracking, and does not collect analytics or personal data of any kind.</p>
+
+  <h2>Where your data lives</h2>
+  <p>All data is stored locally in your browser:</p>
+  <ul>
+    <li><strong>Saved post data</strong> (URLs, thumbnail URLs, alt text) is stored in your browser's <code>localStorage</code>.</li>
+    <li><strong>Your OpenAI API key</strong> is stored in <code>localStorage</code> (webapp) or <code>chrome.storage.local</code> (extension). It never leaves your device except to call OpenAI's API directly.</li>
+    <li>If you use the Chrome extension, scraped post data is temporarily held in <code>chrome.storage.local</code> to transfer it to the organizer tab, then immediately cleared.</li>
+  </ul>
+
+  <h2>What gets sent to OpenAI</h2>
+  <p>When you click "Categorize", the following is sent to <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI's API</a> using your own API key:</p>
+  <ul>
+    <li>Thumbnail image URLs (fetched directly from Instagram's CDN by OpenAI)</li>
+    <li>Alt text descriptions scraped from Instagram posts</li>
+  </ul>
+  <p>This data is sent to categorize your posts. Your use of the OpenAI API is governed by <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI's Privacy Policy</a>.</p>
+
+  <h2>Instagram data</h2>
+  <p>The Chrome extension scrapes only publicly accessible data from your own saved posts page (post URLs, thumbnail URLs, and alt text). No passwords, tokens, or private account data are accessed or stored.</p>
+
+  <h2>Third-party services</h2>
+  <p>The only third-party service contacted is <strong>OpenAI</strong> (api.openai.com), and only when you initiate categorization. No other third parties receive your data.</p>
+
+  <h2>Data deletion</h2>
+  <p>You can delete all stored data at any time by clicking <strong>Settings → Clear All Data</strong> in the app. This removes all post data and your API key from localStorage.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or concerns? Open an issue on <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>.</p>
+
+</div>
+</body>
+</html>

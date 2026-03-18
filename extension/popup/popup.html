@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saved Posts Organizer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <div id="header">
+      <svg class="logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#grad)" stroke-width="2"/>
+        <circle cx="12" cy="12" r="4" stroke="url(#grad)" stroke-width="2"/>
+        <circle cx="17.5" cy="6.5" r="1.5" fill="url(#grad)"/>
+        <defs>
+          <linearGradient id="grad" x1="2" y1="2" x2="22" y2="22">
+            <stop offset="0%" stop-color="#f09433"/>
+            <stop offset="25%" stop-color="#e6683c"/>
+            <stop offset="50%" stop-color="#dc2743"/>
+            <stop offset="75%" stop-color="#cc2366"/>
+            <stop offset="100%" stop-color="#bc1888"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="title">Saved Posts Organizer</span>
+    </div>
+
+    <div id="content">
+      <p id="status" class="status"></p>
+
+      <button id="export-btn" class="btn-primary" style="display:none">
+        Export Saved Posts
+      </button>
+
+      <div id="progress" style="display:none">
+        <div class="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <p id="progress-text" class="progress-text">Starting...</p>
+      </div>
+
+      <div id="result" style="display:none">
+        <div class="result-icon">✓</div>
+        <p class="result-msg" id="result-msg"></p>
+        <p class="hint" id="hint-text">Opening organizer tab automatically…</p>
+        <button id="reexport-btn" class="btn-secondary" style="display:none">Re-export all posts</button>
+        <button id="download-btn" class="btn-secondary">Download JSON backup</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

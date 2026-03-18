@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram Saved Posts Organizer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="root">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────────── -->
+  <header id="header">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#hgrad)" stroke-width="2"/>
+        <circle cx="12" cy="12" r="4" stroke="url(#hgrad)" stroke-width="2"/>
+        <circle cx="17.5" cy="6.5" r="1.5" fill="url(#hgrad)"/>
+        <defs>
+          <linearGradient id="hgrad" x1="2" y1="2" x2="22" y2="22">
+            <stop offset="0%" stop-color="#f09433"/>
+            <stop offset="50%" stop-color="#dc2743"/>
+            <stop offset="100%" stop-color="#bc1888"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="header-title">Saved Posts Organizer</span>
+    </div>
+
+    <div class="header-sep"></div>
+
+    <div class="search-wrap">
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Search posts, tags, categories…">
+    </div>
+
+    <div class="header-right">
+      <span id="post-count"></span>
+      <button class="icon-btn hidden" id="recategorize-btn" title="Re-categorize posts">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="settings-btn" title="Settings">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.993 6.993 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Wrapper holds categorize bar + main layout ─────────────────────────── -->
+  <div id="wrapper">
+
+    <!-- Age warning (shown if export is >20h old) -->
+    <div id="age-warning" class="hidden"></div>
+
+    <!-- Categorize bar (shown when posts loaded but not yet categorized) -->
+    <div id="categorize-bar" class="hidden">
+      <button id="categorize-btn">Categorize with OpenAI</button>
+      <span class="categorize-info">Uses gpt-4o-mini · ~$0.08 per 500 posts</span>
+      <div id="categorize-progress" class="hidden">
+        <div class="progress-track">
+          <div class="progress-track-fill" id="categorize-progress-fill"></div>
+        </div>
+        <span id="categorize-progress-text"></span>
+      </div>
+    </div>
+
+    <!-- ── Upload Section ───────────────────────────────────────────────────── -->
+    <section id="upload-section">
+
+      <!-- How it works (shown to new users) -->
+      <div class="onboarding">
+        <p class="onboarding-title">How it works</p>
+        <div class="onboarding-steps">
+          <div class="onboarding-step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Install the Chrome extension</strong>
+              <span>Add "Saved Posts Organizer" from the Chrome Web Store.</span>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Export from Instagram</strong>
+              <span>Go to instagram.com → Saved → open any collection → click the extension → Export.</span>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Organize automatically</strong>
+              <span>The app opens with your posts ready. Add your OpenAI key to auto-categorize them.</span>
+            </div>
+          </div>
+        </div>
+        <p class="onboarding-footer">Or drop a previously downloaded JSON below &darr; &nbsp;·&nbsp; <a href="privacy.html" target="_blank" class="privacy-link">Privacy Policy</a></p>
+      </div>
+
+      <div id="upload-zone">
+        <span class="upload-icon">📂</span>
+        <p class="upload-title">Drop your saved_posts.json here</p>
+        <p class="upload-sub">Or export using the extension above — it opens here automatically.</p>
+        <span class="upload-btn">Choose File</span>
+      </div>
+      <input type="file" id="file-input" accept=".json">
+    </section>
+
+    <!-- ── Main Layout: Sidebar + Grid ─────────────────────────────────────── -->
+    <div id="main-layout" class="hidden">
+      <!-- Sidebar -->
+      <aside id="sidebar">
+        <div class="sidebar-header">Categories</div>
+        <nav id="folder-tree"></nav>
+      </aside>
+
+      <!-- Grid area -->
+      <main id="main">
+        <div id="grid-header"></div>
+        <div id="post-grid"></div>
+      </main>
+    </div>
+
+  </div><!-- /#wrapper -->
+
+</div><!-- /#root -->
+
+<!-- ── Settings Modal ──────────────────────────────────────────────────────── -->
+<div id="settings-modal" class="hidden">
+  <div class="modal-box">
+    <h2 class="modal-title">Settings</h2>
+
+    <div class="form-group">
+      <label class="form-label" for="api-key-input">OpenAI API Key</label>
+      <input class="form-input" id="api-key-input" type="password" placeholder="sk-…">
+      <p class="form-hint">Stored locally in your browser. Never sent anywhere except OpenAI's API.</p>
+      <p id="api-key-status" class="api-key-status"></p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
+      <button class="btn-ghost" id="download-json-btn">Download JSON</button>
+      <button class="btn-ghost" id="close-settings-btn">Cancel</button>
+      <button class="btn-primary" id="save-api-key-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="storage.js"></script>
+<script src="categorizer.js"></script>
+<script src="renderer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
