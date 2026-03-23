@@ -116,8 +116,10 @@
   }
 
   function waitForMore(countBefore, timeout = 3500) {
+    // Give more time when the tab is in the background (CPU is throttled)
+    const actualTimeout = document.hidden ? timeout * 2 : timeout;
     return new Promise((resolve) => {
-      const deadline = Date.now() + timeout;
+      const deadline = Date.now() + actualTimeout;
       const interval = setInterval(() => {
         if (countCdnImgs() > countBefore || Date.now() > deadline) {
           clearInterval(interval);
@@ -136,7 +138,7 @@
     }
   }
 
-  async function scrape(port) {
+  async function scrape(port, isPortAlive = () => true) {
     // Small delay to let the page settle after injection
     await new Promise((r) => setTimeout(r, 600));
 
@@ -182,12 +184,12 @@
       }
 
       try {
-        await chrome.storage.session.set({
-          igScrapeProgress: { posts, timestamp: Date.now() },
+        await chrome.storage.local.set({
+          igScrapeProgress: { count: posts.length, timestamp: Date.now() },
         });
       } catch (_) {}
 
-      if (!safeSend(port, { type: 'PROGRESS', current: posts.length })) break;
+      safeSend(port, { type: 'PROGRESS', current: posts.length });
 
       if (addedThisRound === 0) {
         retries++;
@@ -195,15 +197,26 @@
         retries = 0;
       }
 
-      window.scrollBy({ top: window.innerHeight * 1.5, behavior: 'smooth' });
+      // Use instant scroll — smooth scroll relies on requestAnimationFrame which
+      // is throttled to ~1fps in background tabs, causing Instagram's intersection
+      // observer to never fire and new posts to never load.
+      window.scrollBy({ top: window.innerHeight * 1.5, behavior: 'instant' });
       await waitForMore(imgCountBefore);
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    safeSend(port, { type: 'COMPLETE', posts });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    // If popup is still open, send through the port as normal.
+    // If the user switched tabs and the popup closed, fall back to background.js.
+    if (isPortAlive()) {
+      safeSend(port, { type: 'COMPLETE', posts });
+    } else {
+      chrome.runtime.sendMessage({ action: 'SCRAPE_COMPLETE', posts, sourceUrl: location.href });
+    }
 
     try {
-      await chrome.storage.session.remove('igScrapeProgress');
+      await chrome.storage.local.set({ igScrapeComplete: { postCount: posts.length, timestamp: Date.now() } });
+      await chrome.storage.local.remove('igScrapeProgress');
     } catch (_) {}
 
     window.__igScraperRegistered = false;
@@ -211,9 +224,11 @@
 
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'ig-scraper') return;
+    let portAlive = true;
+    port.onDisconnect.addListener(() => { portAlive = false; });
     port.onMessage.addListener((msg) => {
       if (msg.action === 'START_SCRAPE') {
-        scrape(port);
+        scrape(port, () => portAlive);
       }
     });
   });

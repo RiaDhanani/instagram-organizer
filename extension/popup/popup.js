@@ -53,6 +53,12 @@ function render() {
     ui.resultMsg.textContent = `All ${state.totalScraped} posts already exported.`;
     ui.hintText.textContent = 'Nothing new to categorize.';
     ui.reexportBtn.style.display = 'block';
+  } else if (phase === 'done') {
+    ui.status.textContent = '';
+    ui.result.style.display = 'block';
+    ui.resultMsg.textContent = `Exported ${postCount} posts!`;
+    ui.hintText.textContent = 'Done — organizer tab is ready.';
+    ui.reexportBtn.style.display = 'none';
   } else if (phase === 'error') {
     ui.status.className = 'status error';
     ui.status.textContent = errorMessage || 'Something went wrong.';
@@ -100,6 +106,8 @@ async function startScrape() {
       state.postCount = msg.current;
       render();
     } else if (msg.type === 'COMPLETE') {
+      // Clean up progress markers — scrape finished with popup open
+      chrome.storage.local.remove(['igScrapeProgress', 'igScrapeComplete']);
       chrome.storage.local.get('ig_known_urls', (stored) => {
         const knownUrls = new Set(stored.ig_known_urls || []);
         const newPosts = msg.posts.filter((p) => !knownUrls.has(p.post_url));
@@ -173,7 +181,52 @@ document.getElementById('reexport-btn').addEventListener('click', () => {
   });
 });
 
+let pollInterval = null;
+const STALE_MS = 3 * 60 * 1000; // ignore progress entries older than 3 min
+
+function pollScrapeProgress() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    const stored = await chrome.storage.local.get(['igScrapeProgress', 'igScrapeComplete']);
+    if (stored.igScrapeComplete) {
+      clearInterval(pollInterval);
+      await chrome.storage.local.remove('igScrapeComplete');
+      state.phase = 'done';
+      state.postCount = stored.igScrapeComplete.postCount;
+      render();
+    } else if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
+      state.postCount = stored.igScrapeProgress.count;
+      state.phase = 'scraping';
+      render();
+    } else {
+      clearInterval(pollInterval);
+    }
+  }, 800);
+}
+
 async function init() {
+  // Always check local storage first — works from any tab, any context
+  const stored = await chrome.storage.local.get(['igScrapeProgress', 'igScrapeComplete']);
+
+  if (stored.igScrapeComplete) {
+    await chrome.storage.local.remove('igScrapeComplete');
+    state.phase = 'done';
+    state.postCount = stored.igScrapeComplete.postCount;
+    render();
+    return;
+  }
+
+  if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
+    state.phase = 'scraping';
+    state.postCount = stored.igScrapeProgress.count;
+    render();
+    pollScrapeProgress();
+    return;
+  }
+
+  // Clean up any stale entry
+  await chrome.storage.local.remove(['igScrapeProgress', 'igScrapeComplete']);
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab.url || '';
 
@@ -181,7 +234,6 @@ async function init() {
     state.phase = 'wrong-page';
     state.errorMessage = 'Navigate to instagram.com/[username]/saved first.';
   } else if (!/instagram\.com\/[^/]+\/saved\/[^/]+/.test(url)) {
-    // On the collections overview (/saved) but not inside a specific collection
     state.phase = 'wrong-page';
     state.errorMessage = 'You\'re on the collections page. Click into "All Posts" (or any collection) first, then click Export.';
   } else {
@@ -193,6 +245,17 @@ async function init() {
 ui.exportBtn.addEventListener('click', () => {
   ui.exportBtn.textContent = 'Export Saved Posts';
   startScrape();
+});
+
+document.getElementById('open-organizer-btn').addEventListener('click', () => {
+  const webappUrl = chrome.runtime.getURL('webapp/index.html');
+  chrome.tabs.query({ url: webappUrl }, (tabs) => {
+    if (tabs.length > 0) {
+      chrome.tabs.update(tabs[0].id, { active: true });
+    } else {
+      chrome.tabs.create({ url: webappUrl });
+    }
+  });
 });
 
 init();

@@ -3,7 +3,10 @@ window.IG = window.IG || {};
 
 window.IG.Categorizer = (() => {
   const SYSTEM_PROMPT = `You are a categorization assistant for Instagram saved posts.
-Output ONLY a valid JSON object — no markdown, no explanation — with exactly this structure:
+Output ONLY valid JSON — no markdown, no explanation, no extra text.
+- For a single post: output one JSON object.
+- For multiple posts (sent as "--- Post 1 ---", "--- Post 2 ---", etc.): output a JSON array with one object per post in the same order.
+Each object must have exactly this structure:
 {
   "category": "string",
   "subcategory": "string",
@@ -19,11 +22,44 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
 - "Road Trip" and "Nature" are the same — always use subcategory "Nature & Road Trip" for both
 - All bars, cocktail bars, dip bars, and drink-focused venues use cuisine "Bar" or a city prefix (e.g. "Chicago Bar"); never use "Unknown Bar" or "Chicago Drinks" as a label
 - Prefer the broader, more consistent label when two options seem equally valid
+- Tags and category/tertiary must be mutually consistent — if you assign a tag like "pasta", tertiary MUST be "Italian"; if you assign "salad" or "grain bowl", tertiary MUST be "Healthy"
 
 ## Taxonomy — follow this exactly:
 
 ### Food
-- If it looks like a recipe, how-to, or home cooking → subcategory: "Recipes", tertiary: cuisine type (e.g. "Italian", "Mexican", "Desserts", "Healthy", "Asian", "Baking", "Drinks")
+- If it looks like a recipe, how-to, or home cooking → subcategory: "Recipes"
+- tertiary: EXACTLY ONE of these 10 strings, copied letter-for-letter — NO other value is valid:
+    "Italian"       — pasta, pizza, risotto, gnocchi, any Italian dish
+    "Mexican"       — tacos, burritos, enchiladas, guacamole, any Mexican dish
+    "Indian"        — curry, biryani, dal, tikka, naan, any Indian dish
+    "Asian"         — covers ALL of: Japanese, Korean, Chinese, Thai, Vietnamese, Filipino and any fusion of those
+    "Mediterranean" — covers ALL of: Greek, Lebanese, Turkish, Moroccan, Middle Eastern, North African
+    "American"      — burgers, BBQ, mac & cheese, fried chicken, sandwiches, comfort food
+    "Healthy"       — salads, grain bowls, smoothies, acai bowls, wraps — NO baked goods, NO desserts, NO sweet treats ever
+    "Baking"        — ALL baked goods AND ALL desserts, including so-called "healthy" versions: bread, muffins, banana bread, cakes, cookies, brownies, pies, cheesecake, ice cream, energy balls, protein bars, protein cookies, date balls, granola bars
+    "Drinks"        — cocktails, mocktails, juices, coffee, tea, any beverage recipe
+    "Breakfast"     — pancakes, waffles, eggs, oatmeal, granola, morning meals
+
+SELF-CHECK before writing each tertiary: is it word-for-word one of the 10 strings above? If not, apply this correction table:
+  "Desserts"              → "Baking"
+  "Sweets"                → "Baking"
+  "Snacks"                → "Baking" (if sweet/baked) or "Healthy" (if savory)
+  "Comfort Food"          → "American"
+  "Asian Fusion"          → "Asian"
+  "Indian Chinese"        → "Asian"
+  "Asian Vegetarian"      → "Asian"
+  "Indian Vegetarian"     → "Indian"
+  "Mexican Vegetarian"    → "Mexican"
+  "Vegan Mexican"         → "Mexican"
+  "Vegan Indian"          → "Indian"
+  "Vegan Asian"           → "Asian"
+  "[Any cuisine] Vegetarian" → "[That cuisine]"
+  "Vegan [Any cuisine]"   → "[That cuisine]"
+  Anything else not in the 10 → pick the closest match from the list
+
+- "Healthy" and "Baking" are MUTUALLY EXCLUSIVE — a healthy muffin is "Baking", a vegan cookie is "Baking", a protein bar is "Baking", always
+- Diet labels (Vegan, Vegetarian, Keto, Gluten-free) NEVER appear in tertiary — tags only
+- Vegan tacos → "Mexican"; vegan curry → "Indian"; vegan with no cuisine → "Healthy" (if not baked)
 - If it looks like a restaurant, cafe, bar, or food place → subcategory: "Restaurants", tertiary: "[City] [Cuisine]"
   - tertiary MUST be a real city name + cuisine type. Examples: "Chicago Italian", "New York Brunch", "Chicago Bar"
   - NEVER use a restaurant name, account handle, hashtag, or description phrase as the tertiary
@@ -96,6 +132,7 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
 
   // ── Core OpenAI chat completions call ────────────────────────────────────────
   async function callCompletions(content, apiKey) {
+    await waitForRateLimit();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -166,7 +203,7 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           tools: [{ type: 'web_search_preview' }],
-          input: `What is the Instagram account @${accountName}? Is it a restaurant, bar, cafe, or other food/lifestyle place? What city is it in and what is it known for? Answer in 2 sentences max.`,
+          input: `What is the Instagram account @${accountName}? What type of content do they post — food, fashion, travel, fitness, home decor, entertainment, etc.? If it's a food place, what city is it in and what cuisine? Answer in 2 sentences max.`,
         }),
       });
       if (!response.ok) return null;
@@ -183,72 +220,24 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
   }
 
   // ── Decide whether a web search is needed ─────────────────────────────────
-  // Restaurants always get a search pass — city identification can't be reliably
-  // inferred from alt text alone and wrong cities are common even at "high" confidence.
   function needsSearch(result) {
-    if (result.category === 'Food' && result.subcategory === 'Restaurants') return true;
-    if (result.confidence !== 'high') return true;
-    return false;
+    return result.confidence !== 'high';
   }
 
-  // ── Two-pass categorization: search & re-categorize when needed ───────────
-  async function categorizeOne(post, apiKey) {
-    await waitForRateLimit();
-
-    const content = [];
-
-    if (post.thumbnail_src) {
-      content.push({
-        type: 'image_url',
-        image_url: { url: post.thumbnail_src, detail: 'low' },
-      });
+  // ── Normalize a raw categorization object ─────────────────────────────────
+  // Accepts either a string (from single-post response) or an already-parsed object
+  // (from batch response array). Both paths go through the same validation.
+  function parseResult(input) {
+    let obj;
+    if (typeof input === 'string') {
+      const match = input.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON in response');
+      obj = JSON.parse(match[0]);
+    } else if (input && typeof input === 'object') {
+      obj = input;
+    } else {
+      throw new Error('Unexpected categorization input type');
     }
-
-    const textLines = [];
-    if (post.alt_text) textLines.push(`Alt text: ${post.alt_text}`);
-    if (post.post_type) textLines.push(`Post type: ${post.post_type}`);
-    textLines.push('Categorize this saved Instagram post.');
-    content.push({ type: 'text', text: textLines.join('\n') });
-
-    let result;
-    try {
-      result = await callCompletions(content, apiKey);
-    } catch (err) {
-      // If image URL caused the error (expired CDN = 400, 403, 422), retry text-only
-      if (post.thumbnail_src && [400, 403, 422].includes(err.status)) {
-        return categorizeOne({ ...post, thumbnail_src: null }, apiKey);
-      }
-      throw err;
-    }
-
-    // Search for more context and re-categorize when needed
-    if (needsSearch(result)) {
-      const accountName = extractAccountName(post.alt_text);
-      if (accountName) {
-        const searchCtx = await searchForContext(accountName, apiKey);
-        if (searchCtx) {
-          const enrichedContent = [
-            ...content,
-            {
-              type: 'text',
-              text: `Additional context from web search about @${accountName}: ${searchCtx}\nUsing this information, provide the final categorization.`,
-            },
-          ];
-          try {
-            result = await callCompletions(enrichedContent, apiKey);
-          } catch { /* fall back to initial result */ }
-        }
-      }
-    }
-
-    return result;
-  }
-
-  function parseResult(text) {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON in response');
-    const obj = JSON.parse(match[0]);
-    // If model still returned "General" despite instructions, replace with "Other"
     const sub = String(obj.subcategory || 'Other');
     return {
       category: String(obj.category || 'Other'),
@@ -259,68 +248,204 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
     };
   }
 
-  async function categorizeWithRetry(post, apiKey, maxAttempts = 6) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        return await categorizeOne(post, apiKey);
-      } catch (err) {
-        // Fatal errors (e.g. 401 bad key) — propagate immediately, don't retry
-        if (err.fatal) throw err;
-        const is429 = err.message.startsWith('429');
-        if (attempt === maxAttempts - 1) {
-          console.error('[Categorizer] Failed after', maxAttempts, 'attempts:', post.post_url, '—', err.message);
-          return {
-            category: 'Uncategorized',
-            subcategory: 'Error',
-            tertiary: null,
-            tags: [],
-            confidence: 'low',
-            error: err.message,
-          };
-        }
-        const waitMs = is429
-          ? Math.max((err.retryAfter || 30) * 1000 + 2000, (attempt + 1) * 15000)
-          : 3000 * (attempt + 1);
-        console.warn('[Categorizer] Attempt', attempt + 1, 'failed:', err.message, `— waiting ${waitMs}ms…`);
-        await sleep(waitMs);
-      }
+  // ── Build user-message content for a single post ───────────────────────────
+  function buildPostContent(post) {
+    const content = [];
+    if (post.thumbnail_src) {
+      content.push({ type: 'image_url', image_url: { url: post.thumbnail_src, detail: 'low' } });
     }
+    const lines = [];
+    if (post.alt_text) lines.push(`Alt text: ${post.alt_text}`);
+    if (post.post_type) lines.push(`Post type: ${post.post_type}`);
+    lines.push('Categorize this saved Instagram post.');
+    content.push({ type: 'text', text: lines.join('\n') });
+    return content;
   }
 
-  async function categorizeAll(posts, apiKey, onProgress, skipImages = false) {
-    // Fully sequential — one request at a time to avoid concurrent 429 storms
-    const BETWEEN_REQUESTS_MS = 1200; // ~50 RPM pace, well within tier-1 limits
+  // ── Batch completions call: multiple posts in one API call ─────────────────
+  async function callCompletionsBatch(posts, apiKey) {
+    await waitForRateLimit();
 
-    const results = [];
+    const content = [];
+    posts.forEach((post, i) => {
+      content.push({ type: 'text', text: `\n--- Post ${i + 1} ---` });
+      if (post.thumbnail_src) {
+        content.push({ type: 'image_url', image_url: { url: post.thumbnail_src, detail: 'low' } });
+      }
+      const lines = [];
+      if (post.alt_text) lines.push(`Alt text: ${post.alt_text}`);
+      if (post.post_type) lines.push(`Post type: ${post.post_type}`);
+      if (lines.length) content.push({ type: 'text', text: lines.join('\n') });
+    });
+    content.push({
+      type: 'text',
+      text: `\nReturn a JSON array of exactly ${posts.length} categorization objects in the same order as the posts above. No other text.`,
+    });
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 300 * posts.length,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content },
+        ],
+      }),
+    });
+
+    if (response.status === 429) {
+      const body = await response.json().catch(() => ({}));
+      const msg = body.error?.message || 'Rate limited';
+      const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
+      rateLimitUntil = Date.now() + retryAfter * 1000 + 1000;
+      if (/quota|billing|credit|exceeded your current/i.test(msg)) {
+        const err = new Error(`Out of OpenAI credits: ${msg}`); err.fatal = true; throw err;
+      }
+      const err = new Error(`429: ${msg}`); err.retryAfter = retryAfter; throw err;
+    }
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const msg = body.error?.message || response.statusText;
+      if (response.status === 401) {
+        const err = new Error('401: Invalid API key — please check your key in Settings.'); err.fatal = true; throw err;
+      }
+      const err = new Error(`${response.status}: ${msg}`); err.status = response.status; throw err;
+    }
+
+    const data = await response.json();
+    const rawText = data.choices?.[0]?.message?.content || '';
+    const match = rawText.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Response was not a JSON array');
+    const arr = JSON.parse(match[0]);
+    if (!Array.isArray(arr) || arr.length !== posts.length) {
+      throw new Error(`Expected ${posts.length} results, got ${Array.isArray(arr) ? arr.length : 'non-array'}`);
+    }
+    // arr elements are already-parsed objects — parseResult handles both strings and objects
+    return arr.map(parseResult);
+  }
+
+  async function categorizeAll(posts, apiKey, onProgress, skipImages = false, controller = {}, enableWebSearch = false) {
+    const BATCH_SIZE = 10;
+    const CONCURRENCY = 3;
+    const results = new Array(posts.length);
+    let nextBatchStart = 0;
+    let completed = 0;
     let errorCount = 0;
     let lastError = null;
-    let consecutiveFails = 0;
+    let cancelled = false;
 
-    for (let i = 0; i < posts.length; i++) {
-      const post = skipImages ? { ...posts[i], thumbnail_src: null } : posts[i];
-
-      const categorization = await categorizeWithRetry(post, apiKey);
-
-      if (categorization.error) {
-        errorCount++;
-        lastError = categorization.error;
-        consecutiveFails++;
-        // If every single post in the first 5 fails, something is systematically wrong — abort
-        if (consecutiveFails >= 5 && i < 5) {
-          throw new Error(`All requests failing: ${lastError}`);
+    // Categorize a single post individually (used as batch fallback)
+    async function categorizeSingle(post) {
+      const p = skipImages ? { ...post, thumbnail_src: null } : post;
+      try {
+        return await callCompletions(buildPostContent(p), apiKey);
+      } catch (err) {
+        if (err.fatal) throw err;
+        // Expired CDN image → retry text-only
+        if (p.thumbnail_src && [400, 403, 422].includes(err.status)) {
+          try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null }), apiKey); }
+          catch (e2) { if (e2.fatal) throw e2; }
         }
-      } else {
-        consecutiveFails = 0;
-      }
-
-      results.push({ ...posts[i], categorization });
-      onProgress(i + 1, posts.length, errorCount, lastError);
-
-      // Wait between requests; skip delay after the last one
-      if (i < posts.length - 1) {
-        await sleep(BETWEEN_REQUESTS_MS);
+        return null; // non-fatal failure — caller marks post as error
       }
     }
+
+    async function processBatch(batchStart) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, posts.length);
+      const batchPosts = posts.slice(batchStart, batchEnd);
+      const postsForApi = skipImages
+        ? batchPosts.map((p) => ({ ...p, thumbnail_src: null }))
+        : batchPosts;
+
+      // ── Pass 1: batch call (1 API call for up to 10 posts) ────────────────
+      let batchCats = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          batchCats = await callCompletionsBatch(postsForApi, apiKey);
+          break;
+        } catch (err) {
+          if (err.fatal) throw err;
+          // CDN image errors → retry text-only once
+          if ([400, 403, 422].includes(err.status) && !skipImages) {
+            try {
+              batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })), apiKey);
+              break;
+            } catch (e2) { if (e2.fatal) throw e2; }
+          }
+          if (attempt < 2) {
+            const waitMs = err.message.startsWith('429')
+              ? Math.max((err.retryAfter || 30) * 1000 + 2000, (attempt + 1) * 10000)
+              : 2000 * (attempt + 1);
+            await sleep(waitMs);
+          }
+        }
+      }
+
+      // ── Batch failed → fall back to individual calls for each post ─────────
+      if (!batchCats) {
+        batchCats = await Promise.all(postsForApi.map((post) => categorizeSingle(post)));
+      }
+
+      // ── Pass 2: web search + re-categorize uncertain posts (optional) ──────
+      const finalCats = await Promise.all(
+        batchCats.map(async (cat, i) => {
+          if (!cat) return null;
+          if (!enableWebSearch || !needsSearch(cat)) return cat;
+          const post = postsForApi[i];
+          const accountName = extractAccountName(post.alt_text);
+          if (!accountName) return cat;
+          const searchCtx = await searchForContext(accountName, apiKey);
+          if (!searchCtx) return cat;
+          const enriched = [...buildPostContent(post), {
+            type: 'text',
+            text: `Additional context from web search about @${accountName}: ${searchCtx}\nUsing this information, provide the final categorization.`,
+          }];
+          return callCompletions(enriched, apiKey).catch(() => cat);
+        })
+      );
+
+      return finalCats;
+    }
+
+    async function worker() {
+      while (true) {
+        while (controller.paused) await sleep(200);
+        if (cancelled) return;
+
+        const batchStart = nextBatchStart;
+        nextBatchStart += BATCH_SIZE;
+        if (batchStart >= posts.length) return;
+
+        let finalCats;
+        try {
+          finalCats = await processBatch(batchStart);
+        } catch (err) {
+          // Only fatal errors (401, quota) reach here
+          cancelled = true;
+          throw err;
+        }
+
+        if (cancelled) return;
+
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, posts.length);
+        for (let i = 0; i < batchEnd - batchStart; i++) {
+          const globalIdx = batchStart + i;
+          const categorization = finalCats[i] || {
+            category: 'Uncategorized', subcategory: 'Error',
+            tertiary: null, tags: [], confidence: 'low',
+          };
+          if (!finalCats[i]) { errorCount++; lastError = 'Failed to categorize'; }
+          results[globalIdx] = { ...posts[globalIdx], categorization };
+          completed++;
+          onProgress(completed, posts.length, errorCount, lastError, results[globalIdx]);
+        }
+      }
+    }
+
+    const workerCount = Math.min(CONCURRENCY, Math.ceil(posts.length / BATCH_SIZE));
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
     return { results, errorCount };
   }

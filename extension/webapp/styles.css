@@ -234,10 +234,8 @@ body {
 #categorize-bar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 12px 20px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: stretch;
   flex-shrink: 0;
 }
 
@@ -248,8 +246,27 @@ body {
   flex: 1;
 }
 
+/* Left column — lines up with the sidebar */
+.categorize-bar-left {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-right: 1px solid var(--border);
+}
+
+/* Right column — lines up with the grid */
+.categorize-bar-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+}
+
 #categorize-btn {
-  padding: 9px 20px;
+  width: 100%;
+  padding: 8px 16px;
   background: var(--gradient);
   color: white;
   border: none;
@@ -262,12 +279,7 @@ body {
 }
 
 #categorize-btn:hover { opacity: 0.88; }
-#categorize-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.categorize-info {
-  color: var(--text-muted);
-  font-size: 12px;
-}
+#categorize-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 #categorize-progress {
   display: flex;
@@ -298,6 +310,20 @@ body {
   white-space: nowrap;
   min-width: 160px;
 }
+
+.btn-pause {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 5px;
+  padding: 2px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-pause:hover { color: var(--text); border-color: var(--text-muted); }
+.btn-pause.paused { color: #4ade80; border-color: #4ade80; }
 
 /* ── Age Warning ─────────────────────────────────────────────────────────────── */
 #age-warning {
@@ -664,6 +690,65 @@ body {
   color: var(--text-dim);
 }
 
+.form-hint-warning {
+  color: #f59e0b;
+}
+
+/* ── Toggle switch ────────────────────────────────────────────────────────────── */
+.toggle-row {
+  margin-top: 4px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+}
+
+.toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.toggle-switch input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  background: var(--surface3);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent-start);
+}
+
+.toggle-track::after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  margin: 3px;
+  transition: transform 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(16px);
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -735,6 +820,103 @@ body {
 .api-key-status.success {
   color: #4caf7d;
 }
+
+/* ── Guide Callouts ──────────────────────────────────────────────────────────── */
+.guide-callout {
+  position: fixed;
+  z-index: 900;
+  width: 250px;
+  pointer-events: auto;
+}
+
+.guide-arrow {
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid rgba(225, 48, 108, 0.45);
+  /* margin-left set by JS to point at target */
+}
+
+.guide-bubble {
+  background: var(--surface2);
+  border: 1px solid rgba(225, 48, 108, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(225, 48, 108, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.guide-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guide-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guide-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.guide-desc strong {
+  color: var(--text);
+}
+
+.guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.guide-skip-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.guide-skip-btn:hover { color: var(--text-muted); }
+
+.guide-next-btn,
+.guide-done-btn {
+  background: var(--gradient);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.guide-next-btn:hover,
+.guide-done-btn:hover { opacity: 0.88; }
 
 /* ── Utilities ────────────────────────────────────────────────────────────────── */
 .hidden {

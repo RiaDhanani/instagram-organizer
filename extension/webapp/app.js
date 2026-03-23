@@ -27,6 +27,8 @@ const dom = {
   categorizeProgress: $('categorize-progress'),
   categorizeProgressFill: $('categorize-progress-fill'),
   categorizeProgressText: $('categorize-progress-text'),
+  pauseBtn: $('pause-btn'),
+  webSearchToggle: $('web-search-toggle'),
   ageWarning: $('age-warning'),
   folderTree: $('folder-tree'),
   postGrid: $('post-grid'),
@@ -95,9 +97,6 @@ async function init() {
     } else {
       enterLoadedMode();
     }
-    if (Storage.loadApiKey() && hasUncategorized) {
-      startCategorization();
-    }
     setupEventListeners();
     return;
   }
@@ -157,6 +156,12 @@ function setupEventListeners() {
   });
 
   dom.categorizeBtn.addEventListener('click', startCategorization);
+  dom.pauseBtn.addEventListener('click', () => {
+    if (!categorizationController) return;
+    categorizationController.paused = !categorizationController.paused;
+    dom.pauseBtn.textContent = categorizationController.paused ? 'Resume' : 'Pause';
+    dom.pauseBtn.classList.toggle('paused', categorizationController.paused);
+  });
   dom.recategorizeBtn?.addEventListener('click', () => {
     // Strip old categorization and re-run
     state.posts = state.posts.map(({ categorization, ...rest }) => rest);
@@ -175,7 +180,11 @@ function setupEventListeners() {
     dom.apiKeyInput.value = Storage.loadApiKey();
     dom.apiKeyStatus.textContent = '';
     dom.apiKeyStatus.className = 'api-key-status';
+    dom.webSearchToggle.checked = Storage.loadWebSearch();
     dom.settingsModal.classList.remove('hidden');
+  });
+  dom.webSearchToggle.addEventListener('change', () => {
+    Storage.saveWebSearch(dom.webSearchToggle.checked);
   });
   dom.closeSettingsBtn.addEventListener('click', () => dom.settingsModal.classList.add('hidden'));
   dom.settingsModal.addEventListener('click', (e) => {
@@ -275,6 +284,7 @@ function enterLoadedMode() {
   state.selectedPosts = state.posts;
   dom.gridHeader.textContent = `All Posts — ${state.posts.length} (uncategorized)`;
   Renderer.renderGrid(state.posts, dom.postGrid);
+  setTimeout(showGuide, 80);
 }
 
 function enterCategorizedMode() {
@@ -379,6 +389,8 @@ function applySearch() {
 
 // ─── Categorization ───────────────────────────────────────────────────────────
 
+let categorizationController = null;
+
 async function startCategorization() {
   const apiKey = Storage.loadApiKey();
   if (!apiKey) {
@@ -387,8 +399,13 @@ async function startCategorization() {
     return;
   }
 
+  categorizationController = { paused: false };
+
   dom.categorizeBtn.disabled = true;
+  dom.categorizeBtn.textContent = 'Categorizing…';
   dom.categorizeProgress.classList.remove('hidden');
+  dom.pauseBtn.textContent = 'Pause';
+  dom.pauseBtn.classList.remove('paused', 'hidden');
 
   // Skip images if export is older than 20 hours (CDN URLs will be expired)
   const skipImages = exportAgeHours() > 20;
@@ -405,23 +422,53 @@ async function startCategorization() {
   );
 
   if (toProcess.length === 0) {
+    dom.pauseBtn.classList.add('hidden');
+    categorizationController = null;
     enterCategorizedMode();
     return;
+  }
+
+  // Accumulate results as they arrive so we can show a live tree
+  const partialResults = [];
+  const TREE_REFRESH_EVERY = 5;
+
+  function refreshLiveTree() {
+    const categorized = [...alreadyDone, ...partialResults].filter(
+      (p) => p.categorization && p.categorization.category !== 'Uncategorized'
+    );
+    if (categorized.length === 0) return;
+    // Show main layout if it's still hidden (first result)
+    if (dom.mainLayout.classList.contains('hidden')) {
+      dom.uploadSection.classList.add('hidden');
+      dom.mainLayout.classList.remove('hidden');
+    }
+    state.tree = Renderer.buildTree(categorized);
+    Renderer.renderTree(state.tree, dom.folderTree, onFolderSelect);
   }
 
   try {
     const { results, errorCount } = await Categorizer.categorizeAll(
       toProcess,
       apiKey,
-      (current, total, errors, lastError) => {
+      (current, total, errors, lastError, lastResult) => {
         const pct = Math.round((current / total) * 100);
         dom.categorizeProgressFill.style.width = pct + '%';
         const errNote = errors > 0 ? ` · ${errors} failed` : '';
         const errDetail = lastError ? ` [${lastError.slice(0, 60)}]` : '';
-        dom.categorizeProgressText.textContent = `${current} / ${total}${errNote}${errDetail}`;
+        const pausedNote = categorizationController?.paused ? ' · paused' : '';
+        dom.categorizeProgressText.textContent = `${current} / ${total}${errNote}${errDetail}${pausedNote}`;
+        if (lastResult) {
+          partialResults.push(lastResult);
+          if (partialResults.length % TREE_REFRESH_EVERY === 0) refreshLiveTree();
+        }
       },
-      skipImages
+      skipImages,
+      categorizationController,
+      Storage.loadWebSearch()
     );
+
+    dom.pauseBtn.classList.add('hidden');
+    categorizationController = null;
 
     // Merge newly categorized with already-done posts
     state.posts = [...alreadyDone, ...results];
@@ -436,10 +483,73 @@ async function startCategorization() {
 
     enterCategorizedMode();
   } catch (err) {
+    dom.pauseBtn.classList.add('hidden');
+    categorizationController = null;
     dom.categorizeBtn.disabled = false;
+    dom.categorizeBtn.textContent = 'Auto Categorize';
     dom.categorizeProgress.classList.add('hidden');
-    alert('Categorization error: ' + err.message);
+    if (err.fatal && Storage.isUsingDefaultKey()) {
+      dom.apiKeyStatus.textContent = '';
+      dom.apiKeyStatus.className = 'api-key-status';
+      dom.settingsModal.classList.remove('hidden');
+      dom.apiKeyInput.focus();
+      dom.apiKeyStatus.textContent = 'Free credits used up — please enter your own OpenAI API key to continue.';
+      dom.apiKeyStatus.className = 'api-key-status warning';
+    } else {
+      alert('Categorization error: ' + err.message);
+    }
   }
+}
+
+// ─── Guide ────────────────────────────────────────────────────────────────────
+
+function showGuide() {
+  if (localStorage.getItem('ig_organizer_guide_seen')) return;
+
+  const step1 = document.getElementById('guide-step-1');
+  const step2 = document.getElementById('guide-step-2');
+  const arrow1 = document.getElementById('guide-arrow-1');
+  const arrow2 = document.getElementById('guide-arrow-2');
+  if (!step1 || !step2) return;
+
+  const CALLOUT_WIDTH = 250;
+
+  function positionStep1() {
+    const rect = dom.settingsBtn.getBoundingClientRect();
+    const left = Math.max(8, rect.right - CALLOUT_WIDTH);
+    step1.style.top = (rect.bottom + 8) + 'px';
+    step1.style.left = left + 'px';
+    const arrowLeft = (rect.left + rect.width / 2) - left - 9;
+    arrow1.style.marginLeft = Math.max(9, Math.min(CALLOUT_WIDTH - 27, arrowLeft)) + 'px';
+  }
+
+  function positionStep2() {
+    const rect = dom.categorizeBtn.getBoundingClientRect();
+    step2.style.top = (rect.bottom + 8) + 'px';
+    step2.style.left = rect.left + 'px';
+    arrow2.style.marginLeft = Math.max(9, rect.width / 2 - 9) + 'px';
+  }
+
+  function dismissGuide() {
+    step1.classList.add('hidden');
+    step2.classList.add('hidden');
+    localStorage.setItem('ig_organizer_guide_seen', '1');
+  }
+
+  positionStep1();
+  step1.classList.remove('hidden');
+
+  document.getElementById('guide-skip').addEventListener('click', dismissGuide);
+  document.getElementById('guide-next').addEventListener('click', () => {
+    step1.classList.add('hidden');
+    positionStep2();
+    step2.classList.remove('hidden');
+  });
+  document.getElementById('guide-done').addEventListener('click', dismissGuide);
+
+  // Dismiss if user clicks the actual buttons
+  dom.settingsBtn.addEventListener('click', dismissGuide, { once: true });
+  dom.categorizeBtn.addEventListener('click', dismissGuide, { once: true });
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

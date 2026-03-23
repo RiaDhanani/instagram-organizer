@@ -3,6 +3,7 @@
   "name": "Instagram Saved Posts Organizer",
   "version": "1.0.0",
   "description": "Export your Instagram saved posts as JSON for organization",
+  "homepage_url": "https://saved-posts-organizer.vercel.app",
   "permissions": ["activeTab", "scripting", "downloads", "storage", "tabs"],
   "host_permissions": ["https://www.instagram.com/*"],
   "background": {

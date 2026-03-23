@@ -59,13 +59,17 @@
 
     <!-- Categorize bar (shown when posts loaded but not yet categorized) -->
     <div id="categorize-bar" class="hidden">
-      <button id="categorize-btn">Categorize with OpenAI</button>
-      <span class="categorize-info">Uses gpt-4o-mini · ~$0.08 per 500 posts</span>
-      <div id="categorize-progress" class="hidden">
-        <div class="progress-track">
-          <div class="progress-track-fill" id="categorize-progress-fill"></div>
+      <div class="categorize-bar-left">
+        <button id="categorize-btn">Auto Categorize</button>
+      </div>
+      <div class="categorize-bar-right">
+        <div id="categorize-progress" class="hidden">
+          <div class="progress-track">
+            <div class="progress-track-fill" id="categorize-progress-fill"></div>
+          </div>
+          <span id="categorize-progress-text"></span>
+          <button id="pause-btn" class="btn-pause hidden">Pause</button>
         </div>
-        <span id="categorize-progress-text"></span>
       </div>
     </div>
 
@@ -80,7 +84,7 @@
             <div class="step-num">1</div>
             <div class="step-body">
               <strong>Install the Chrome extension</strong>
-              <span>Add "Saved Posts Organizer" from the Chrome Web Store.</span>
+              <span>Add <a href="https://chromewebstore.google.com/detail/instagram-saved-posts-org/onbfnpknejpalckpjlgoglpfejckimhb" target="_blank" class="onboarding-link">Saved Posts Organizer</a> from the Chrome Web Store.</span>
             </div>
           </div>
           <div class="onboarding-step">
@@ -94,7 +98,7 @@
             <div class="step-num">3</div>
             <div class="step-body">
               <strong>Organize automatically</strong>
-              <span>The app opens with your posts ready. Add your OpenAI key to auto-categorize them.</span>
+              <span>The app opens with your posts ready. Categorization credits are free to use until exhausted — after that, add your own <a href="https://platform.openai.com/api-keys" target="_blank" class="onboarding-link">OpenAI API key</a> in Settings to continue.</span>
             </div>
           </div>
         </div>
@@ -141,6 +145,19 @@
       <p id="api-key-status" class="api-key-status"></p>
     </div>
 
+    <div class="form-group">
+      <div class="toggle-row">
+        <label class="toggle-label" for="web-search-toggle">
+          <span class="toggle-switch">
+            <input type="checkbox" id="web-search-toggle">
+            <span class="toggle-track"></span>
+          </span>
+          Enable web search for location lookup
+        </label>
+      </div>
+      <p class="form-hint form-hint-warning">Off by default. When on, if the model is uncertain about which category a post belongs to, it looks up the account online for more context — costs ~$0.025 per search query on top of regular token usage.</p>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
       <button class="btn-ghost" id="download-json-btn">Download JSON</button>
@@ -150,6 +167,36 @@
   </div>
 </div>
 
+<!-- ── Guide Callouts ─────────────────────────────────────────────────────── -->
+<div id="guide-step-1" class="guide-callout hidden">
+  <div class="guide-arrow" id="guide-arrow-1"></div>
+  <div class="guide-bubble">
+    <div class="guide-header">
+      <span class="guide-num">1</span>
+      <span class="guide-title">Add your API key</span>
+    </div>
+    <p class="guide-desc">Open <strong>Settings</strong> to add your OpenAI API key. You can also enable web search here for smarter categorization results.</p>
+    <div class="guide-footer">
+      <button class="guide-skip-btn" id="guide-skip">Skip</button>
+      <button class="guide-next-btn" id="guide-next">Next →</button>
+    </div>
+  </div>
+</div>
+<div id="guide-step-2" class="guide-callout hidden">
+  <div class="guide-arrow" id="guide-arrow-2"></div>
+  <div class="guide-bubble">
+    <div class="guide-header">
+      <span class="guide-num">2</span>
+      <span class="guide-title">Auto categorize</span>
+    </div>
+    <p class="guide-desc">Once your key is saved, click <strong>Auto Categorize</strong> to automatically organize all your saved posts into categories.</p>
+    <div class="guide-footer">
+      <button class="guide-done-btn" id="guide-done">Got it ✓</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
 <script src="storage.js"></script>
 <script src="categorizer.js"></script>
 <script src="renderer.js"></script>
