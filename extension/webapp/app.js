@@ -176,6 +176,11 @@ function setupEventListeners() {
     applySearch();
   });
 
+  // Prevent the API key from being copied, cut, or right-clicked
+  dom.apiKeyInput.addEventListener('copy', (e) => e.preventDefault());
+  dom.apiKeyInput.addEventListener('cut', (e) => e.preventDefault());
+  dom.apiKeyInput.addEventListener('contextmenu', (e) => e.preventDefault());
+
   dom.settingsBtn.addEventListener('click', () => {
     dom.apiKeyInput.value = Storage.loadApiKey();
     dom.apiKeyStatus.textContent = '';
