@@ -1,7 +1,7 @@
 // Service worker — handles tab management and downloads on behalf of popup
 
 // ── Shared helper: filter new posts, save to storage, open webapp ─────────────
-function openWebappWithPosts(posts, sourceUrl) {
+function openWebappWithPosts(posts, sourceUrl, windowId) {
   chrome.storage.local.get('ig_known_urls', (stored) => {
     const knownUrls = new Set(stored.ig_known_urls || []);
     const newPosts = posts.filter((p) => !knownUrls.has(p.post_url));
@@ -18,11 +18,13 @@ function openWebappWithPosts(posts, sourceUrl) {
     chrome.storage.local.set({ ig_pending_posts: payload, ig_known_urls: updatedUrls }, () => {
       if (chrome.runtime.lastError) return;
       const webappUrl = chrome.runtime.getURL('webapp/index.html');
-      chrome.tabs.query({ url: webappUrl }, (tabs) => {
+
+      // Try to find existing tab in the specific window first
+      chrome.tabs.query({ url: webappUrl, windowId }, (tabs) => {
         if (tabs.length > 0) {
           chrome.tabs.reload(tabs[0].id, () => chrome.tabs.update(tabs[0].id, { active: true }));
         } else {
-          chrome.tabs.create({ url: webappUrl });
+          chrome.tabs.create({ url: webappUrl, windowId });
         }
       });
     });
@@ -33,7 +35,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // ── Scrape completed while popup was closed (user switched tabs) ───────────
   if (message.action === 'SCRAPE_COMPLETE') {
-    openWebappWithPosts(message.posts, message.sourceUrl);
+    const windowId = sender.tab ? sender.tab.windowId : undefined;
+    openWebappWithPosts(message.posts, message.sourceUrl, windowId);
     return false;
   }
 
@@ -56,13 +59,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
         const webappUrl = chrome.runtime.getURL('webapp/index.html');
-        chrome.tabs.query({ url: webappUrl }, (tabs) => {
+        const windowId = message.windowId;
+
+        chrome.tabs.query({ url: webappUrl, windowId }, (tabs) => {
           if (tabs.length > 0) {
             chrome.tabs.reload(tabs[0].id, () => {
               chrome.tabs.update(tabs[0].id, { active: true });
             });
           } else {
-            chrome.tabs.create({ url: webappUrl });
+            chrome.tabs.create({ url: webappUrl, windowId });
           }
           sendResponse({ success: true });
         });
