@@ -323,18 +323,21 @@ quaternary: null
   }
 
   // ── Core proxy chat completions call ─────────────────────────────────────────
-  async function callCompletions(content) {
+  async function callCompletions(content, { model, userApiKey } = {}) {
     await waitForRateLimit();
+    const body = {
+      max_tokens: 250,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content },
+      ],
+    };
+    if (model) body.model = model;
+    if (userApiKey) body.userApiKey = userApiKey;
     const response = await fetch(window.IG_CONFIG.categorizeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        max_tokens: 250,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content },
-        ],
-      }),
+      body: JSON.stringify(body),
     });
 
     if (response.status === 429) {
@@ -344,6 +347,16 @@ quaternary: null
       rateLimitUntil = Date.now() + retryAfter * 1000 + 1000;
       const err = new Error(`429: ${msg429}`);
       err.retryAfter = retryAfter;
+      throw err;
+    }
+
+    if (response.status === 402) {
+      const errBody402 = await response.json().catch(() => ({}));
+      const msg402 = errBody402.error?.message || 'Insufficient credits';
+      const err = new Error(`402: ${msg402}`);
+      err.status = 402;
+      err.outOfCredits = true;
+      err.fatal = true;
       throw err;
     }
 
@@ -428,7 +441,7 @@ quaternary: null
   }
 
   // ── Batch completions call: multiple posts in one API call ─────────────────
-  async function callCompletionsBatch(posts) {
+  async function callCompletionsBatch(posts, { model, userApiKey } = {}) {
     await waitForRateLimit();
 
     const content = [];
@@ -447,16 +460,19 @@ quaternary: null
       text: `\nReturn a JSON array of exactly ${posts.length} categorization objects in the same order as the posts above. No other text.`,
     });
 
+    const reqBody = {
+      max_tokens: 300 * posts.length,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content },
+      ],
+    };
+    if (model) reqBody.model = model;
+    if (userApiKey) reqBody.userApiKey = userApiKey;
     const response = await fetch(window.IG_CONFIG.categorizeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        max_tokens: 300 * posts.length,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content },
-        ],
-      }),
+      body: JSON.stringify(reqBody),
     });
 
     if (response.status === 429) {
@@ -465,6 +481,15 @@ quaternary: null
       const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
       rateLimitUntil = Date.now() + retryAfter * 1000 + 1000;
       const err = new Error(`429: ${msg}`); err.retryAfter = retryAfter; throw err;
+    }
+    if (response.status === 402) {
+      const body = await response.json().catch(() => ({}));
+      const msg = body.error?.message || 'Insufficient credits';
+      const err = new Error(`402: ${msg}`);
+      err.status = 402;
+      err.outOfCredits = true;
+      err.fatal = true;
+      throw err;
     }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -483,7 +508,7 @@ quaternary: null
     return arr.map(parseResult);
   }
 
-  async function categorizeAll(posts, onProgress, skipImages = false, controller = {}, enableWebSearch = false) {
+  async function categorizeAll(posts, onProgress, skipImages = false, controller = {}, enableWebSearch = false, { model, userApiKey } = {}) {
     const BATCH_SIZE = 10;
     const CONCURRENCY = 3;
     const results = new Array(posts.length);
@@ -497,12 +522,12 @@ quaternary: null
     async function categorizeSingle(post) {
       const p = skipImages ? { ...post, thumbnail_src: null } : post;
       try {
-        return await callCompletions(buildPostContent(p));
+        return await callCompletions(buildPostContent(p), { model, userApiKey });
       } catch (err) {
         if (err.fatal) throw err;
         // Expired CDN image → retry text-only
         if (p.thumbnail_src && [400, 403, 422].includes(err.status)) {
-          try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null })); }
+          try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null }), { model, userApiKey }); }
           catch (e2) { if (e2.fatal) throw e2; }
         }
         return null;
@@ -520,13 +545,13 @@ quaternary: null
       let batchCats = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          batchCats = await callCompletionsBatch(postsForApi);
+          batchCats = await callCompletionsBatch(postsForApi, { model, userApiKey });
           break;
         } catch (err) {
           if (err.fatal) throw err;
           if ([400, 403, 422].includes(err.status) && !skipImages) {
             try {
-              batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })));
+              batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })), { model, userApiKey });
               break;
             } catch (e2) { if (e2.fatal) throw e2; }
           }
@@ -539,8 +564,15 @@ quaternary: null
         }
       }
 
-      // ── Batch failed → fall back to individual calls ──────────────────────
+      // ── Batch failed → if free model, throw immediately (rate limited); else fall back ──
       if (!batchCats) {
+        if (model) {
+          const e = new Error(`Free model rate-limited: ${model}`);
+          e.modelRateLimited = true;
+          e.model = model;
+          e.fatal = true;
+          throw e;
+        }
         batchCats = await Promise.all(postsForApi.map((post) => categorizeSingle(post)));
       }
 
@@ -558,7 +590,7 @@ quaternary: null
             type: 'text',
             text: `Additional context from web search about @${accountName}: ${searchCtx}\nUsing this information, provide the final categorization.`,
           }];
-          return callCompletions(enriched).catch(() => cat);
+          return callCompletions(enriched, { model, userApiKey }).catch(() => cat);
         })
       );
 

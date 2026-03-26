@@ -76,6 +76,37 @@
       </div>
     </div>
 
+    <!-- Credits exhausted panel (shown when server key runs out of credits) -->
+    <div id="credits-panel" class="hidden">
+      <div class="credits-panel-body">
+        <div class="credits-msg-row">
+          <span class="credits-warn-icon">⚠</span>
+          <div>
+            <strong class="credits-title">Server credits exhausted</strong>
+            <p class="credits-desc">The shared API key ran out of credits. Choose a free model below or add your own <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">OpenRouter key</a>.</p>
+          </div>
+        </div>
+
+        <div class="credits-field">
+          <label class="credits-label">Free model <span class="credits-label-hint">(no credits needed)</span></label>
+          <select id="free-model-select"></select>
+        </div>
+
+        <div class="credits-divider"><span>or</span></div>
+
+        <div class="credits-field">
+          <label class="credits-label">Your OpenRouter API key</label>
+          <input id="user-api-key-input" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+          <p id="credits-key-hint" class="credits-key-hint">Key is sent directly to OpenRouter from your browser — never stored on our servers.</p>
+        </div>
+
+        <div class="credits-actions">
+          <button id="retry-categorize-btn" class="btn-primary">Retry Categorization</button>
+          <p id="credits-status" class="credits-status hidden"></p>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Upload Section ───────────────────────────────────────────────────── -->
     <section id="upload-section">
 

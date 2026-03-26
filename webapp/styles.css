@@ -1010,3 +1010,141 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* ── Credits exhausted panel ─────────────────────────────────────────────── */
+#credits-panel {
+  background: #1a1a1a;
+  border: 1px solid #f59e0b44;
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+  margin: 8px 16px;
+  padding: 16px;
+}
+
+.credits-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.credits-msg-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.credits-warn-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #f59e0b;
+}
+
+.credits-title {
+  font-size: 13px;
+  color: #e5e5e5;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.credits-desc {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.credits-desc a { color: #a78bfa; text-decoration: none; }
+.credits-desc a:hover { text-decoration: underline; }
+
+.credits-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.credits-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.credits-label-hint {
+  font-weight: 400;
+  text-transform: none;
+  color: #666;
+  letter-spacing: 0;
+}
+
+#free-model-select {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e5e5e5;
+  font-size: 13px;
+  padding: 7px 10px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 360px;
+}
+
+#free-model-select option:disabled { color: #555; }
+#free-model-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.credits-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #555;
+  font-size: 11px;
+}
+
+.credits-divider::before,
+.credits-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a2a;
+  max-width: 80px;
+}
+
+#user-api-key-input {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e5e5e5;
+  font-size: 13px;
+  font-family: monospace;
+  padding: 7px 10px;
+  width: 100%;
+  max-width: 360px;
+  box-sizing: border-box;
+}
+
+#user-api-key-input:focus {
+  outline: none;
+  border-color: #a78bfa55;
+}
+
+.credits-key-hint {
+  font-size: 11px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.credits-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.credits-status {
+  font-size: 12px;
+  color: #f87171;
+  margin: 0;
+}

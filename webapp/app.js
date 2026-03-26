@@ -40,7 +40,68 @@ const dom = {
   closeSettingsBtn: $('close-settings-btn'),
   clearDataBtn: $('clear-data-btn'),
   downloadJsonBtn: $('download-json-btn'),
+  creditsPanel: $('credits-panel'),
+  freeModelSelect: $('free-model-select'),
+  userApiKeyInput: $('user-api-key-input'),
+  retryCategBtn: $('retry-categorize-btn'),
+  creditsStatus: $('credits-status'),
+  creditsKeyHint: $('credits-key-hint'),
 };
+
+// ─── Credits / Free model fallback ───────────────────────────────────────────
+
+const FREE_MODELS = [
+  { id: 'google/gemma-3-27b-it:free',             name: 'Google Gemma 3 27B' },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Meta Llama 3.3 70B' },
+  { id: 'deepseek/deepseek-chat:free',            name: 'DeepSeek V3' },
+  { id: 'qwen/qwen-2.5-72b-instruct:free',        name: 'Qwen 2.5 72B' },
+  { id: 'microsoft/phi-4:free',                   name: 'Microsoft Phi-4' },
+];
+
+const failedModels = new Set();
+
+function estimateCost(postCount) {
+  const batches = Math.ceil(postCount / 10);
+  const inputTokens = batches * 2000;
+  const outputTokens = batches * 500;
+  const cost = (inputTokens * 0.15 + outputTokens * 0.60) / 1_000_000;
+  return cost < 0.01 ? '<$0.01' : `~$${cost.toFixed(2)}`;
+}
+
+function showCreditsPanel(failedModel) {
+  if (failedModel) failedModels.add(failedModel);
+
+  // Populate dropdown
+  dom.freeModelSelect.innerHTML = '';
+  let firstAvailable = null;
+  for (const m of FREE_MODELS) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    const exhausted = failedModels.has(m.id);
+    opt.textContent = exhausted ? `${m.name} ($0.00 — rate limited)` : `${m.name} ($0.00)`;
+    opt.disabled = exhausted;
+    if (!exhausted && !firstAvailable) { firstAvailable = m.id; opt.selected = true; }
+    dom.freeModelSelect.appendChild(opt);
+  }
+
+  // Update key hint with cost estimate for their posts
+  const n = state.posts ? state.posts.filter((p) => !p.categorization || p.categorization.category === 'Uncategorized').length : 0;
+  if (n > 0) {
+    dom.creditsKeyHint.textContent = `Key is sent directly to OpenRouter from your browser — never stored on our servers. Using gpt-4o-mini, cost for ${n} posts: ${estimateCost(n)}.`;
+  }
+
+  const allExhausted = FREE_MODELS.every((m) => failedModels.has(m.id));
+  if (allExhausted) {
+    dom.freeModelSelect.disabled = true;
+    dom.creditsStatus.textContent = 'All free models are currently rate-limited. Add your own OpenRouter key below.';
+    dom.creditsStatus.classList.remove('hidden');
+  } else {
+    dom.freeModelSelect.disabled = false;
+    dom.creditsStatus.classList.add('hidden');
+  }
+
+  dom.creditsPanel.classList.remove('hidden');
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -112,6 +173,27 @@ function setupEventListeners() {
   dom.closeSettingsBtn.addEventListener('click', () => dom.settingsModal.classList.add('hidden'));
   dom.settingsModal.addEventListener('click', (e) => {
     if (e.target === dom.settingsModal) dom.settingsModal.classList.add('hidden');
+  });
+
+  dom.retryCategBtn.addEventListener('click', async () => {
+    const userKey = dom.userApiKeyInput.value.trim();
+    const allExhausted = FREE_MODELS.every((m) => failedModels.has(m.id));
+    let model = null;
+    let userApiKey = null;
+
+    if (userKey) {
+      userApiKey = userKey;
+      // model stays null → server uses gpt-4o-mini
+    } else if (allExhausted) {
+      dom.creditsStatus.textContent = 'Please add your own OpenRouter API key above.';
+      dom.creditsStatus.classList.remove('hidden');
+      return;
+    } else {
+      model = dom.freeModelSelect.value;
+    }
+
+    dom.creditsPanel.classList.add('hidden');
+    await startCategorization(model, userApiKey);
   });
 
   dom.clearDataBtn.addEventListener('click', () => {
@@ -285,7 +367,7 @@ function applySearch() {
 
 let categorizationController = null;
 
-async function startCategorization() {
+async function startCategorization(model = null, userApiKey = null) {
   categorizationController = { paused: false };
 
   dom.categorizeBtn.disabled = true;
@@ -350,7 +432,8 @@ async function startCategorization() {
       },
       skipImages,
       categorizationController,
-      Storage.loadWebSearch()
+      Storage.loadWebSearch(),
+      { model, userApiKey }
     );
 
     dom.pauseBtn.classList.add('hidden');
@@ -374,7 +457,21 @@ async function startCategorization() {
     dom.categorizeBtn.disabled = false;
     dom.categorizeBtn.textContent = 'Auto Categorize';
     dom.categorizeProgress.classList.add('hidden');
-    alert('Categorization error: ' + err.message);
+
+    if (err.outOfCredits) {
+      if (userApiKey) {
+        // User's own key is also out of credits
+        showCreditsPanel();
+        dom.creditsStatus.textContent = 'Your OpenRouter key is out of credits. Add more credits at openrouter.ai or try a free model.';
+        dom.creditsStatus.classList.remove('hidden');
+      } else {
+        showCreditsPanel(null);
+      }
+    } else if (err.modelRateLimited) {
+      showCreditsPanel(err.model || model);
+    } else {
+      alert('Categorization error: ' + err.message);
+    }
   }
 }
 
