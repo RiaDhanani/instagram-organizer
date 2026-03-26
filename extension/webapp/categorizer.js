@@ -35,6 +35,7 @@ Each object must have exactly this structure:
 5. If two categories compete, pick the one with more signal from the tags
 6. Set confidence: high = obvious, medium = inferred from context, low = guessing from handle only
 7. VERIFY: if Food > Recipes, confirm tertiary is word-for-word one of: Italian, Mexican, Indian, Asian, Mediterranean, American, Healthy, Baking, Drinks, Breakfast — if not, apply the correction table in the Recipes section before outputting
+8. VERIFY: if the post is a bar, cocktail bar, club, speakeasy, dip bar, or any nightlife venue → category MUST be "Nightlife", subcategory "Drinks" or "Clubs" — never Food, never Travel
 
 ---
 
@@ -100,11 +101,11 @@ SELF-CHECK before writing each tertiary: is it word-for-word one of the 10 strin
 - Diet labels (Vegan, Vegetarian, Keto, Gluten-free) NEVER appear in tertiary — tags only
 - Vegan tacos → "Mexican"; vegan curry → "Indian"; vegan with no cuisine → "Healthy" (if not baked)
 
-#### Restaurants (place-based: restaurant, cafe, bar, food truck, market)
+#### Restaurants (place-based: restaurant, cafe, food truck, market — NOT bars or nightlife)
 - subcategory: "Restaurants"
 - tertiary: "[City] [Cuisine]" — ALWAYS a real city name + cuisine type
   - Extract city from: caption location tags, hashtags (e.g. #chicagofood), account handle (e.g. @chicagoeats → Chicago), or explicit mention
-  - If city cannot be confirmed with reasonable confidence → set confidence: "low" (do NOT guess; leave tertiary as just the cuisine type, e.g. "Italian", "Bar")
+  - If city cannot be confirmed with reasonable confidence → set confidence: "low" (do NOT guess; leave tertiary as just the cuisine type, e.g. "Italian")
   - Cuisine must be the parent category, never a dish name:
     - sushi / ramen / hibachi / izakaya → Japanese
     - pizza / pasta / risotto → Italian
@@ -112,9 +113,19 @@ SELF-CHECK before writing each tertiary: is it word-for-word one of the 10 strin
     - burgers / BBQ / wings → American
     - pho / banh mi → Vietnamese
     - dim sum / dumplings / noodles → Chinese
-    - cocktail bar / speakeasy / dip bar / drink-focused venue → Bar
-  - Known account → city mappings (use these exactly, update as new ones are confirmed):
-    - @gus_sipanddip → "Chicago Bar"
+  - DO NOT use "Bar" or "Cocktails" as cuisine here — bars belong in Nightlife > Drinks
+
+### Nightlife
+ANY bar, pub, cocktail bar, dip bar, speakeasy, rooftop bar, wine bar, club, nightclub, lounge, or drink-focused venue → category: "Nightlife"
+- subcategory: "Drinks" for bars/cocktail venues; "Clubs" for nightclubs/dancing venues
+- tertiary: city name if known (e.g. "Chicago", "New York"), null if unknown
+- Known accounts: @gus_sipanddip → Nightlife, Drinks, Chicago
+- CORRECTION TABLE — if you were about to write any of these, use Nightlife > Drinks instead:
+  "Chicago Bar" → Nightlife > Drinks > Chicago
+  "Bar" (anywhere) → Nightlife > Drinks
+  "Cocktails" (as a venue type) → Nightlife > Drinks
+  "Nightlife" (under Travel) → Nightlife > Drinks
+  "[City] Bar" or "[City] Cocktails" → Nightlife > Drinks > [City]
 
 ### Wedding
 Trigger on ANY wedding-related content: real weddings, inspiration, planning, bridal content.
@@ -136,7 +147,7 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
   - Urban exploration → city name
   - Beach/coastal content → "Beach"
   - Mountain content without a specific destination → "Mountains"
-- tertiary: activity or vibe — Architecture, Street Food, Nightlife, Hiking, Beaches, Culture, Day Trip, Scenic Views
+- tertiary: activity or vibe — Architecture, Street Food, Hiking, Beaches, Culture, Day Trip, Scenic Views — do NOT use "Nightlife" here; bar/club content goes to the Nightlife category
 
 ### Fitness
 - subcategory: Yoga, Gym, Running, Pilates, HIIT, Nutrition, Wellness, Dance, Cycling, Swimming

@@ -34,7 +34,7 @@ Note: confidence must be exactly one of the strings: "high", "medium", or "low".
 - Read the full post context before assigning — do not rely on a single keyword
 - Merge overlapping concepts into one consistent label; do not invent narrow one-off subcategories
 - "Road Trip" and "Nature" are the same — always use subcategory "Nature & Road Trip" for both
-- All bars, cocktail bars, dip bars, and drink-focused venues use cuisine "Bar" or a city prefix (e.g. "Chicago Bar"); never use "Unknown Bar" or "Chicago Drinks" as a label
+- Bars, cocktail bars, dip bars, clubs, speakeasies, and any drink/nightlife venue → ALWAYS category "Nightlife", subcategory "Drinks" — never Food, never Travel, never Restaurants
 - Prefer the broader, more consistent label when two options seem equally valid
 - Tags are your evidence — category and tertiary must follow directly from your tags
 
@@ -74,18 +74,27 @@ SELF-CHECK before writing each tertiary: is it word-for-word one of the 10 strin
 - "Healthy" and "Baking" are MUTUALLY EXCLUSIVE — a healthy muffin is "Baking", a vegan cookie is "Baking", a protein bar is "Baking", always
 - Diet labels (Vegan, Vegetarian, Keto, Gluten-free) NEVER appear in tertiary — tags only
 - Vegan tacos → "Mexican"; vegan curry → "Indian"; vegan with no cuisine → "Healthy" (if not baked)
-- If it looks like a restaurant, cafe, bar, or food place → subcategory: "Restaurants", tertiary: "[City] [Cuisine]"
-  - tertiary MUST be a real city name + cuisine type. Examples: "Chicago Italian", "New York Brunch", "Chicago Bar"
+- If it looks like a restaurant or cafe (but NOT a bar/nightlife venue) → subcategory: "Restaurants", tertiary: "[City] [Cuisine]"
+  - tertiary MUST be a real city name + cuisine type. Examples: "Chicago Italian", "New York Brunch"
   - NEVER use a restaurant name, account handle, hashtag, or description phrase as the tertiary
   - NEVER write "has restaurant", "has food", or any sentence fragment as the tertiary
   - Extract the city from the account name in alt text (e.g. "@chicagoeats" → Chicago, "@nyceats" → New York) or any location text
-  - Cuisine examples: Italian, Mexican, Indian, Japanese, Korean, Chinese, Mediterranean, American, Middle Eastern, Thai, Cafe, Brunch, Dessert, Bakery, Bar, Cocktails
+  - Cuisine examples: Italian, Mexican, Indian, Japanese, Korean, Chinese, Mediterranean, American, Middle Eastern, Thai, Cafe, Brunch, Dessert, Bakery
   - Always use the parent cuisine, never a dish name: sushi/ramen/hibachi → Japanese; pizza/pasta → Italian; tacos/burritos → Mexican; burgers/BBQ → American; pho → Vietnamese; dim sum/dumplings → Chinese
-  - Cocktail bars, dip bars, speakeasies, and drink-focused venues → cuisine: "Bar" or "Cocktails"
-  - Known account → city mappings (use these exactly):
-    @gus_sipanddip → "Chicago Bar"
-  - If you cannot identify the city with confidence → set confidence to "low" (do NOT guess a city; a web search will be used to find it)
-  - If city is confirmed unknown after searching → tertiary = just the cuisine type (e.g. "Italian", "Bar")
+  - If you cannot identify the city with confidence → set confidence to "low"
+  - If city is confirmed unknown → tertiary = just the cuisine type (e.g. "Italian")
+
+### Nightlife
+- ANY bar, pub, cocktail bar, dip bar, speakeasy, rooftop bar, wine bar, club, nightclub, lounge, or drink-focused venue → category: "Nightlife"
+- subcategory: "Drinks" for bars/cocktail venues; "Clubs" for nightclubs/dancing venues
+- tertiary: city name if known (e.g. "Chicago", "New York"), null if unknown
+- Known accounts: @gus_sipanddip → Nightlife, Drinks, Chicago
+- CORRECTION TABLE — if you were about to write any of these, use Nightlife > Drinks instead:
+  "Chicago Bar" → Nightlife > Drinks > Chicago
+  "Bar" (as tertiary or subcategory under Food/Travel) → Nightlife > Drinks
+  "Cocktails" (as tertiary or subcategory under Food) → Nightlife > Drinks
+  "Nightlife" (as tertiary under Travel) → Nightlife > Drinks
+  "[City] Bar" or "[City] Cocktails" → Nightlife > Drinks > [City]
 
 ### Wedding
 - If ANY wedding-related content (real wedding, inspo, planning) → category: "Wedding"
@@ -103,7 +112,7 @@ SELF-CHECK before writing each tertiary: is it word-for-word one of the 10 strin
 
 ### Travel
 - subcategory: destination city/country OR travel type (e.g. "Chicago", "Italy", "Bali", "Beach", "Mountains", "City Guide", "Nature & Road Trip")
-- tertiary: activity or vibe (e.g. "Architecture", "Street Food", "Nightlife", "Hiking")
+- tertiary: activity or vibe (e.g. "Architecture", "Street Food", "Hiking") — do NOT use "Nightlife" here; bar/club content goes to the Nightlife category instead
 - Nature trips, outdoor adventures, hikes, and road trips all use subcategory "Nature & Road Trip"
 
 ### Fitness
