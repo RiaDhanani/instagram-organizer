@@ -1,5 +1,5 @@
-// api/websearch.js — Vercel serverless proxy to OpenAI Responses API (web search)
-// The OPENAI_API_KEY env var is set in the Vercel dashboard and never exposed to the browser.
+// api/websearch.js — Vercel serverless proxy to OpenRouter (Perplexity sonar for web search)
+// Uses the same OPENROUTER_API_KEY as categorize.js — no separate OpenAI key needed.
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -14,21 +14,22 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'input string required' });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
   try {
-    const upstream = await fetch('https://api.openai.com/v1/responses', {
+    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://saved-posts-organizer.vercel.app',
+        'X-Title': 'Instagram Saved Posts Organizer',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        tools: [{ type: 'web_search_preview' }],
-        input,
+        model: 'perplexity/sonar',
+        messages: [{ role: 'user', content: input }],
       }),
     });
 

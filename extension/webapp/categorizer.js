@@ -235,12 +235,7 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
       });
       if (!response.ok) return null;
       const data = await response.json();
-      const texts = (data.output || [])
-        .filter(o => o.type === 'message')
-        .flatMap(m => (m.content || []))
-        .filter(c => c.type === 'output_text')
-        .map(c => c.text);
-      return texts.join(' ').trim() || null;
+      return data.choices?.[0]?.message?.content?.trim() || null;
     } catch {
       return null;
     }
