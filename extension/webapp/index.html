@@ -112,13 +112,6 @@
     <h2 class="modal-title">Settings</h2>
 
     <div class="form-group">
-      <label class="form-label" for="api-key-input">OpenAI API Key</label>
-      <input class="form-input" id="api-key-input" type="password" placeholder="sk-…">
-      <p class="form-hint">Stored locally in your browser. Never sent anywhere except OpenAI's API.</p>
-      <p id="api-key-status" class="api-key-status"></p>
-    </div>
-
-    <div class="form-group">
       <div class="toggle-row">
         <label class="toggle-label" for="web-search-toggle">
           <span class="toggle-switch">
@@ -128,14 +121,13 @@
           Enable web search for location lookup
         </label>
       </div>
-      <p class="form-hint form-hint-warning">Off by default. When on, if the model is uncertain about which category a post belongs to, it looks up the account online for more context — costs ~$0.025 per search query on top of regular token usage.</p>
+      <p class="form-hint form-hint-warning">Off by default. When on, if the model is uncertain about which category a post belongs to, it looks up the account online for more context.</p>
     </div>
 
     <div class="modal-actions">
       <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
       <button class="btn-ghost" id="download-json-btn">Download JSON</button>
-      <button class="btn-ghost" id="close-settings-btn">Cancel</button>
-      <button class="btn-primary" id="save-api-key-btn">Save</button>
+      <button class="btn-primary" id="close-settings-btn">Close</button>
     </div>
   </div>
 </div>
@@ -146,9 +138,9 @@
   <div class="guide-bubble">
     <div class="guide-header">
       <span class="guide-num">1</span>
-      <span class="guide-title">Add your API key</span>
+      <span class="guide-title">Web search (optional)</span>
     </div>
-    <p class="guide-desc">Open <strong>Settings</strong> to add your OpenAI API key. You can also enable web search here for smarter categorization results.</p>
+    <p class="guide-desc">Open <strong>Settings</strong> to enable web search for smarter location detection — useful if you save posts from restaurants or local businesses.</p>
     <div class="guide-footer">
       <button class="guide-skip-btn" id="guide-skip">Skip</button>
       <button class="guide-next-btn" id="guide-next">Next →</button>

@@ -37,9 +37,6 @@ const dom = {
   postCount: $('post-count'),
   settingsBtn: $('settings-btn'),
   settingsModal: $('settings-modal'),
-  apiKeyInput: $('api-key-input'),
-  apiKeyStatus: $('api-key-status'),
-  saveApiKeyBtn: $('save-api-key-btn'),
   closeSettingsBtn: $('close-settings-btn'),
   clearDataBtn: $('clear-data-btn'),
   downloadJsonBtn: $('download-json-btn'),
@@ -48,8 +45,6 @@ const dom = {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
-  dom.apiKeyInput.value = Storage.loadApiKey();
-
   const saved = Storage.loadPosts();
   if (saved) {
     state.rawData = saved;
@@ -70,29 +65,6 @@ function init() {
   }
 
   setupEventListeners();
-}
-
-// ─── API Key Validation ───────────────────────────────────────────────────────
-
-async function validateApiKey(key) {
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
-    });
-    if (res.status === 401) return { valid: false, error: 'Invalid API key — check your key and try again.' };
-    if (res.status === 429) {
-      const body = await res.json().catch(() => ({}));
-      const msg = body.error?.message || '';
-      if (/quota|billing|credit/i.test(msg)) return { valid: true, warning: 'Key is valid but your account has no credits. Add credits at platform.openai.com.' };
-      return { valid: true, warning: 'Key is valid (currently rate-limited — will work soon).' };
-    }
-    if (!res.ok) return { valid: false, error: `OpenAI returned ${res.status} — check your key.` };
-    return { valid: true };
-  } catch {
-    return { valid: false, error: 'Could not reach OpenAI. Check your internet connection.' };
-  }
 }
 
 function setupEventListeners() {
@@ -130,15 +102,7 @@ function setupEventListeners() {
     applySearch();
   });
 
-  // Prevent the API key from being copied, cut, or right-clicked
-  dom.apiKeyInput.addEventListener('copy', (e) => e.preventDefault());
-  dom.apiKeyInput.addEventListener('cut', (e) => e.preventDefault());
-  dom.apiKeyInput.addEventListener('contextmenu', (e) => e.preventDefault());
-
   dom.settingsBtn.addEventListener('click', () => {
-    dom.apiKeyInput.value = Storage.loadApiKey();
-    dom.apiKeyStatus.textContent = '';
-    dom.apiKeyStatus.className = 'api-key-status';
     dom.webSearchToggle.checked = Storage.loadWebSearch();
     dom.settingsModal.classList.remove('hidden');
   });
@@ -148,34 +112,6 @@ function setupEventListeners() {
   dom.closeSettingsBtn.addEventListener('click', () => dom.settingsModal.classList.add('hidden'));
   dom.settingsModal.addEventListener('click', (e) => {
     if (e.target === dom.settingsModal) dom.settingsModal.classList.add('hidden');
-  });
-  dom.saveApiKeyBtn.addEventListener('click', async () => {
-    const key = dom.apiKeyInput.value.trim();
-    if (!key) {
-      Storage.saveApiKey('');
-      dom.settingsModal.classList.add('hidden');
-      return;
-    }
-    dom.saveApiKeyBtn.disabled = true;
-    dom.saveApiKeyBtn.textContent = 'Validating…';
-    dom.apiKeyStatus.textContent = '';
-    dom.apiKeyStatus.className = 'api-key-status';
-    const result = await validateApiKey(key);
-    dom.saveApiKeyBtn.disabled = false;
-    dom.saveApiKeyBtn.textContent = 'Save';
-    if (result.valid) {
-      Storage.saveApiKey(key);
-      if (result.warning) {
-        dom.apiKeyStatus.textContent = result.warning;
-        dom.apiKeyStatus.className = 'api-key-status warning';
-        setTimeout(() => dom.settingsModal.classList.add('hidden'), 2500);
-      } else {
-        dom.settingsModal.classList.add('hidden');
-      }
-    } else {
-      dom.apiKeyStatus.textContent = result.error;
-      dom.apiKeyStatus.className = 'api-key-status error';
-    }
   });
 
   dom.clearDataBtn.addEventListener('click', () => {
@@ -350,13 +286,6 @@ function applySearch() {
 let categorizationController = null;
 
 async function startCategorization() {
-  const apiKey = Storage.loadApiKey();
-  if (!apiKey) {
-    dom.settingsModal.classList.remove('hidden');
-    dom.apiKeyInput.focus();
-    return;
-  }
-
   categorizationController = { paused: false };
 
   dom.categorizeBtn.disabled = true;
@@ -407,7 +336,6 @@ async function startCategorization() {
   try {
     const { results, errorCount } = await Categorizer.categorizeAll(
       toProcess,
-      apiKey,
       (current, total, errors, lastError, lastResult) => {
         const pct = Math.round((current / total) * 100);
         dom.categorizeProgressFill.style.width = pct + '%';
@@ -446,17 +374,7 @@ async function startCategorization() {
     dom.categorizeBtn.disabled = false;
     dom.categorizeBtn.textContent = 'Auto Categorize';
     dom.categorizeProgress.classList.add('hidden');
-    if (err.fatal && Storage.isUsingDefaultKey()) {
-      dom.apiKeyStatus.textContent = '';
-      dom.apiKeyStatus.className = 'api-key-status';
-      dom.settingsModal.classList.remove('hidden');
-      dom.apiKeyInput.focus();
-      // Show a helpful message inside the modal
-      dom.apiKeyStatus.textContent = 'Free credits used up — please enter your own OpenAI API key to continue.';
-      dom.apiKeyStatus.className = 'api-key-status warning';
-    } else {
-      alert('Categorization error: ' + err.message);
-    }
+    alert('Categorization error: ' + err.message);
   }
 }
 

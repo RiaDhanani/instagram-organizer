@@ -178,17 +178,13 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
     if (wait > 0) await sleep(wait);
   }
 
-  // ── Core OpenAI chat completions call ────────────────────────────────────────
-  async function callCompletions(content, apiKey) {
+  // ── Core proxy chat completions call ─────────────────────────────────────────
+  async function callCompletions(content) {
     await waitForRateLimit();
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(window.IG_CONFIG.categorizeUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
         max_tokens: 250,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -202,12 +198,6 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
       const msg429 = errBody429.error?.message || 'Rate limited';
       const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
       rateLimitUntil = Date.now() + retryAfter * 1000 + 1000;
-      // Quota exceeded = fatal (no point retrying, user needs to add credits)
-      if (/quota|billing|credit|exceeded your current/i.test(msg429)) {
-        const err = new Error(`Out of OpenAI credits: ${msg429}`);
-        err.fatal = true;
-        throw err;
-      }
       const err = new Error(`429: ${msg429}`);
       err.retryAfter = retryAfter;
       throw err;
@@ -216,12 +206,6 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       const msg = errBody.error?.message || response.statusText;
-      // 401 = bad API key — fatal, no point retrying
-      if (response.status === 401) {
-        const err = new Error('401: Invalid API key — please check your key in Settings.');
-        err.fatal = true;
-        throw err;
-      }
       const err = new Error(`${response.status}: ${msg}`);
       err.status = response.status;
       throw err;
@@ -239,18 +223,13 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
     return match ? match[1] : null;
   }
 
-  // ── Web search via OpenAI Responses API ───────────────────────────────────
-  async function searchForContext(accountName, apiKey) {
+  // ── Web search via proxy ───────────────────────────────────────────────────
+  async function searchForContext(accountName) {
     try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
+      const response = await fetch(window.IG_CONFIG.webSearchUrl, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          tools: [{ type: 'web_search_preview' }],
           input: `What is the Instagram account @${accountName}? What type of content do they post — food, fashion, travel, fitness, home decor, entertainment, etc.? If it's a food place, what city is it in and what cuisine? Answer in 2 sentences max.`,
         }),
       });
@@ -311,7 +290,7 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
   }
 
   // ── Batch completions call: multiple posts in one API call ─────────────────
-  async function callCompletionsBatch(posts, apiKey) {
+  async function callCompletionsBatch(posts) {
     await waitForRateLimit();
 
     const content = [];
@@ -330,11 +309,10 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
       text: `\nReturn a JSON array of exactly ${posts.length} categorization objects in the same order as the posts above. No other text.`,
     });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(window.IG_CONFIG.categorizeUrl, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
         max_tokens: 300 * posts.length,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -348,17 +326,11 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
       const msg = body.error?.message || 'Rate limited';
       const retryAfter = parseInt(response.headers.get('retry-after') || '60', 10);
       rateLimitUntil = Date.now() + retryAfter * 1000 + 1000;
-      if (/quota|billing|credit|exceeded your current/i.test(msg)) {
-        const err = new Error(`Out of OpenAI credits: ${msg}`); err.fatal = true; throw err;
-      }
       const err = new Error(`429: ${msg}`); err.retryAfter = retryAfter; throw err;
     }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       const msg = body.error?.message || response.statusText;
-      if (response.status === 401) {
-        const err = new Error('401: Invalid API key — please check your key in Settings.'); err.fatal = true; throw err;
-      }
       const err = new Error(`${response.status}: ${msg}`); err.status = response.status; throw err;
     }
 
@@ -374,7 +346,7 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
     return arr.map(parseResult);
   }
 
-  async function categorizeAll(posts, apiKey, onProgress, skipImages = false, controller = {}, enableWebSearch = false) {
+  async function categorizeAll(posts, onProgress, skipImages = false, controller = {}, enableWebSearch = false) {
     const BATCH_SIZE = 10;
     const CONCURRENCY = 3;
     const results = new Array(posts.length);
@@ -388,12 +360,12 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
     async function categorizeSingle(post) {
       const p = skipImages ? { ...post, thumbnail_src: null } : post;
       try {
-        return await callCompletions(buildPostContent(p), apiKey);
+        return await callCompletions(buildPostContent(p));
       } catch (err) {
         if (err.fatal) throw err;
         // Expired CDN image → retry text-only
         if (p.thumbnail_src && [400, 403, 422].includes(err.status)) {
-          try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null }), apiKey); }
+          try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null })); }
           catch (e2) { if (e2.fatal) throw e2; }
         }
         return null; // non-fatal failure — caller marks post as error
@@ -411,14 +383,14 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
       let batchCats = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          batchCats = await callCompletionsBatch(postsForApi, apiKey);
+          batchCats = await callCompletionsBatch(postsForApi);
           break;
         } catch (err) {
           if (err.fatal) throw err;
           // CDN image errors → retry text-only once
           if ([400, 403, 422].includes(err.status) && !skipImages) {
             try {
-              batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })), apiKey);
+              batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })));
               break;
             } catch (e2) { if (e2.fatal) throw e2; }
           }
@@ -444,13 +416,13 @@ Trigger on ANY wedding-related content: real weddings, inspiration, planning, br
           const post = postsForApi[i];
           const accountName = extractAccountName(post.alt_text);
           if (!accountName) return cat;
-          const searchCtx = await searchForContext(accountName, apiKey);
+          const searchCtx = await searchForContext(accountName);
           if (!searchCtx) return cat;
           const enriched = [...buildPostContent(post), {
             type: 'text',
             text: `Additional context from web search about @${accountName}: ${searchCtx}\nUsing this information, provide the final categorization.`,
           }];
-          return callCompletions(enriched, apiKey).catch(() => cat);
+          return callCompletions(enriched).catch(() => cat);
         })
       );
 
