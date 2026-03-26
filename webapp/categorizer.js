@@ -16,13 +16,27 @@ Each object must have exactly this structure:
 }
 Note: confidence must be exactly one of the strings: "high", "medium", or "low".
 
+## STEP-BY-STEP REASONING (do this silently before writing any output)
+1. List 4-6 specific descriptive tags for this post — food item, cuisine type, location hints, account style, ingredients, etc. These tags are your evidence.
+2. Use those tags to determine the category and tertiary. Tags drive the category — the category must be a logical conclusion from the tags:
+   - tags contain pasta / pizza / risotto / gnocchi → tertiary: "Italian"
+   - tags contain curry / biryani / dal / naan / tikka → tertiary: "Indian"
+   - tags contain taco / burrito / enchilada / guacamole → tertiary: "Mexican"
+   - tags contain sushi / ramen / stir fry / dumplings / kimchi / pho → tertiary: "Asian"
+   - tags contain salad / grain bowl / smoothie / acai / wrap → tertiary: "Healthy"
+   - tags contain cake / cookie / muffin / brownie / bread / banana bread / protein bar → tertiary: "Baking"
+   - tags contain pancake / waffle / eggs / oatmeal / granola → tertiary: "Breakfast"
+   - tags contain cocktail / mocktail / juice / coffee / tea → tertiary: "Drinks"
+3. NEVER let the category contradict the tags. If your tags say "pasta" but you wrote tertiary "Asian", you made an error — fix the tertiary.
+4. VERIFY tertiary is word-for-word one of the 10 allowed strings before writing output.
+
 ## General principles
 - Read the full post context before assigning — do not rely on a single keyword
 - Merge overlapping concepts into one consistent label; do not invent narrow one-off subcategories
 - "Road Trip" and "Nature" are the same — always use subcategory "Nature & Road Trip" for both
 - All bars, cocktail bars, dip bars, and drink-focused venues use cuisine "Bar" or a city prefix (e.g. "Chicago Bar"); never use "Unknown Bar" or "Chicago Drinks" as a label
 - Prefer the broader, more consistent label when two options seem equally valid
-- Tags and category/tertiary must be mutually consistent — if you assign a tag like "pasta", tertiary MUST be "Italian"; if you assign "salad" or "grain bowl", tertiary MUST be "Healthy"
+- Tags are your evidence — category and tertiary must follow directly from your tags
 
 ## Taxonomy — follow this exactly:
 

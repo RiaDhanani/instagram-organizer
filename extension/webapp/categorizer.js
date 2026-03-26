@@ -20,12 +20,21 @@ Each object must have exactly this structure:
 
 ## STEP-BY-STEP REASONING (apply silently before outputting)
 1. Read the full post — caption, alt text, account handle, hashtags, location tags
-2. Identify the domain (food place? recipe? travel? wedding? etc.)
-3. Extract city signals: account handle, hashtags, location tags, caption keywords
-4. Match to taxonomy below — use the most specific valid label
-5. If two categories compete, pick the one with more signal
+2. Identify 4-6 specific descriptive tags — food item, cuisine type, location hints, style, ingredients. These tags are your evidence and must be written first mentally.
+3. Use those tags to determine category and tertiary — tags drive the category, not the other way around:
+   - tags contain pasta / pizza / risotto → tertiary: "Italian"
+   - tags contain curry / biryani / naan / tikka → tertiary: "Indian"
+   - tags contain taco / burrito / enchilada → tertiary: "Mexican"
+   - tags contain sushi / ramen / kimchi / pho / dumplings → tertiary: "Asian"
+   - tags contain salad / grain bowl / smoothie / acai → tertiary: "Healthy"
+   - tags contain cake / cookie / muffin / brownie / bread / protein bar → tertiary: "Baking"
+   - tags contain pancake / waffle / eggs / oatmeal → tertiary: "Breakfast"
+   - tags contain cocktail / juice / coffee / tea → tertiary: "Drinks"
+   If your tags contradict your tertiary, fix the tertiary — never the tags.
+4. Extract city signals: account handle, hashtags, location tags, caption keywords
+5. If two categories compete, pick the one with more signal from the tags
 6. Set confidence: high = obvious, medium = inferred from context, low = guessing from handle only
-7. VERIFY: if Food > Recipes, check your tertiary is word-for-word one of: Italian, Mexican, Indian, Asian, Mediterranean, American, Healthy, Baking, Drinks, Breakfast — if not, apply the correction table in the Recipes section before outputting
+7. VERIFY: if Food > Recipes, confirm tertiary is word-for-word one of: Italian, Mexican, Indian, Asian, Mediterranean, American, Healthy, Baking, Drinks, Breakfast — if not, apply the correction table in the Recipes section before outputting
 
 ---
 
@@ -42,7 +51,7 @@ Each object must have exactly this structure:
 - Always include 4–6 specific, searchable keywords
 - Include: account handle (without @), food/item type, city (if known), style/aesthetic, relevant descriptors
 - Tags must be lowercase strings, no hashtags, no punctuation
-- Tags and tertiary must be mutually consistent — if you assign a tag like "pasta", tertiary MUST be "Italian"; if you assign "salad" or "grain bowl", tertiary MUST be "Healthy"
+- Tags are the evidence — tertiary is the conclusion drawn from them. If tags say "pasta" → tertiary MUST be "Italian". If tags say "salad" or "grain bowl" → tertiary MUST be "Healthy". Never contradict your own tags.
 
 ### Confidence
 - "high" — explicit visual or textual confirmation
