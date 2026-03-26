@@ -409,6 +409,7 @@ quaternary: null
       category: String(obj.category || 'Other'),
       subcategory: sub === 'General' ? 'Other' : sub,
       tertiary: (obj.tertiary && String(obj.tertiary).toLowerCase() !== 'null') ? String(obj.tertiary) : null,
+      quaternary: (obj.quaternary && String(obj.quaternary).toLowerCase() !== 'null') ? String(obj.quaternary) : null,
       tags: Array.isArray(obj.tags) ? obj.tags.map(String) : [],
       confidence: ['high', 'medium', 'low'].includes(obj.confidence) ? obj.confidence : 'low',
     };
@@ -593,7 +594,7 @@ quaternary: null
           const globalIdx = batchStart + i;
           const categorization = finalCats[i] || {
             category: 'Uncategorized', subcategory: 'Error',
-            tertiary: null, tags: [], confidence: 'low',
+            tertiary: null, quaternary: null, tags: [], confidence: 'low',
           };
           if (!finalCats[i]) { errorCount++; lastError = 'Failed to categorize'; }
           results[globalIdx] = { ...posts[globalIdx], categorization };

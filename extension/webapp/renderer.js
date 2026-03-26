@@ -452,24 +452,36 @@ window.IG.Renderer = (() => {
   }
 
   // ── Cross-category reclassification ────────────────────────────────────────
-  // Fixes posts that the AI placed in the wrong category/subcategory.
-  function reclassify(cat, sub, ter) {
-    // Tech / Technology category → Education > Technology
+  // Fixes posts placed in wrong buckets and migrates old 3-field data to new 4-field structure.
+  // Old structure: Food > Restaurants > "Chicago Italian"
+  // New structure: Food > Chicago > Restaurants > Italian
+  // Old structure: Food > Recipes > Italian (tertiary)
+  // New structure: Food > Recipes > null > Italian (quaternary)
+  const CUISINE_STRINGS = new Set([
+    'Italian','Mexican','Indian','Japanese','Korean','Chinese','Thai','Vietnamese',
+    'Mediterranean','American','Healthy','Baking','Drinks','Breakfast','Brunch',
+    'Dessert','French','BBQ','Pizza','Sushi',
+  ]);
+  const PLACE_TYPES = new Set(['Restaurants','Bars','Cafes','Date Night','Clubs']);
+
+  function reclassify(cat, sub, ter, quat = null) {
     const catKey = (cat || '').toLowerCase().replace(/[\s\-_]/g, '');
+
+    // Tech / Technology → Education > Technology
     if (catKey === 'tech' || catKey === 'technology') {
-      return { cat: 'Education', sub: sub || 'Technology', ter };
+      return { cat: 'Education', sub: sub || 'Technology', ter, quat };
     }
 
     // Wedding > Invitations (subcategory) → Wedding > Planning > Invitations
     if (cat === 'Wedding' && /^invitation/i.test(sub || '')) {
-      return { cat: 'Wedding', sub: 'Planning', ter: 'Invitations' };
+      return { cat: 'Wedding', sub: 'Planning', ter: 'Invitations', quat: null };
     }
 
     // Wedding > Planning with gown/trousseau tertiary → Wedding > Outfits
     if (cat === 'Wedding' && sub === 'Planning') {
       const t = (ter || '').toLowerCase();
       if (/gown|trousseau|dress|lehenga|outfit|attire/.test(t)) {
-        return { cat: 'Wedding', sub: 'Outfits', ter };
+        return { cat: 'Wedding', sub: 'Outfits', ter, quat: null };
       }
     }
 
@@ -477,26 +489,44 @@ window.IG.Renderer = (() => {
     if (cat === 'Wedding' && sub === 'Makeup') {
       const t = (ter || '').toLowerCase();
       if (/gown|dress|lehenga|trousseau/.test(t)) {
-        return { cat: 'Wedding', sub: 'Outfits', ter };
+        return { cat: 'Wedding', sub: 'Outfits', ter, quat: null };
       }
     }
 
-    // Food > Restaurants with garbage tertiary → strip it so it groups by city/cuisine only
-    if (cat === 'Food' && sub === 'Restaurants' && ter) {
+    // ── Food migrations ────────────────────────────────────────────────────────
+
+    // OLD: Food > Recipes > "Italian" (cuisine in tertiary, no quaternary)
+    // NEW: Food > Recipes > null > "Italian"
+    if (cat === 'Food' && sub === 'Recipes' && ter && !quat && CUISINE_STRINGS.has(ter)) {
+      return { cat: 'Food', sub: 'Recipes', ter: null, quat: ter };
+    }
+
+    // OLD: Food > Restaurants > "Chicago Italian"
+    // NEW: Food > Chicago > Restaurants > Italian
+    if (cat === 'Food' && sub === 'Restaurants' && ter && !quat) {
       if (/^has\s/i.test(ter) || /^restaurant/i.test(ter)) {
-        return { cat, sub, ter: null };
+        return { cat: 'Food', sub: 'Restaurants', ter: null, quat: null };
       }
+      const parts = ter.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        const city = parts[0];
+        const cuisine = parts.slice(1).join(' ');
+        const placeWord = cuisine === 'Bar' ? 'Bars' : (PLACE_TYPES.has(cuisine) ? cuisine : 'Restaurants');
+        const cuisineQuat = PLACE_TYPES.has(cuisine) ? null : (CUISINE_STRINGS.has(cuisine) ? cuisine : null);
+        return { cat: 'Food', sub: city, ter: placeWord, quat: cuisineQuat };
+      }
+      return { cat: 'Food', sub: ter, ter: 'Restaurants', quat: null };
     }
 
-    // Other > food/bar/restaurant subcategory → Food > Restaurants
+    // Other > food/bar subcategory → Food > Unknown City > Restaurants
     if (catKey === 'other') {
       const subKey = (sub || '').toLowerCase().replace(/[\s\-_]/g, '');
       if (/restaurant|cafe|bar|diner|eatery|bistro|tavern|pizzeria|sushi|ramen|korean|italian|mexican|indian|chinese|japanese|thai|mediterranean|american|brunch|bakery|dessert|cocktail|speakeasy/.test(subKey)) {
-        return { cat: 'Food', sub: 'Restaurants', ter: ter || sub };
+        return { cat: 'Food', sub: 'Unknown City', ter: 'Restaurants', quat: ter || null };
       }
     }
 
-    return { cat, sub, ter };
+    return { cat, sub, ter, quat };
   }
 
   // ── Build nested tree from categorized posts ───────────────────────────────
@@ -507,13 +537,15 @@ window.IG.Renderer = (() => {
       const rawCat = post.categorization?.category || 'Uncategorized';
       const rawSub = post.categorization?.subcategory || 'Other';
       const rawTer = post.categorization?.tertiary || null;
+      const rawQuat = post.categorization?.quaternary || null;
 
       // Normalize labels first, then reclassify
       const normCat = normalizeLabel(rawCat) || 'Uncategorized';
       const normSub = normalizeLabel(rawSub) || 'Other';
-      const normTer = normalizeLabel(rawTer); // null-safe
+      const normTer = normalizeLabel(rawTer);
+      const normQuat = normalizeLabel(rawQuat);
 
-      const { cat, sub, ter } = reclassify(normCat, normSub, normTer);
+      const { cat, sub, ter, quat } = reclassify(normCat, normSub, normTer, normQuat);
 
       if (!tree[cat]) tree[cat] = { __posts: [], __count: 0 };
       tree[cat].__count++;
@@ -523,8 +555,21 @@ window.IG.Renderer = (() => {
 
       if (ter) {
         if (!tree[cat][sub][ter]) tree[cat][sub][ter] = { __posts: [], __count: 0 };
-        tree[cat][sub][ter].__posts.push(post);
         tree[cat][sub][ter].__count++;
+
+        if (quat) {
+          if (!tree[cat][sub][ter][quat]) tree[cat][sub][ter][quat] = { __posts: [], __count: 0 };
+          tree[cat][sub][ter][quat].__posts.push(post);
+          tree[cat][sub][ter][quat].__count++;
+        } else {
+          tree[cat][sub][ter].__posts.push(post);
+        }
+      } else if (quat) {
+        // ter=null but quat set (e.g. Food > Recipes > null > Italian)
+        // Promote quat to the tertiary slot
+        if (!tree[cat][sub][quat]) tree[cat][sub][quat] = { __posts: [], __count: 0 };
+        tree[cat][sub][quat].__posts.push(post);
+        tree[cat][sub][quat].__count++;
       } else {
         tree[cat][sub].__posts.push(post);
       }
@@ -577,7 +622,26 @@ window.IG.Renderer = (() => {
               const terNode = subNode[ter];
               const terLi = document.createElement('li');
               terLi.className = 'folder-item';
-              terLi.appendChild(makeFolderHeader(ter, terNode.__count, [cat, sub, ter], onSelect, terNode, null));
+
+              const sortedQuats = Object.keys(terNode).filter((k) => !k.startsWith('__')).sort();
+              let quatUl = null;
+
+              if (sortedQuats.length > 0) {
+                quatUl = document.createElement('ul');
+                quatUl.className = 'folder-children';
+                quatUl.style.display = 'none';
+
+                for (const quat of sortedQuats) {
+                  const quatNode = terNode[quat];
+                  const quatLi = document.createElement('li');
+                  quatLi.className = 'folder-item';
+                  quatLi.appendChild(makeFolderHeader(quat, quatNode.__count, [cat, sub, ter, quat], onSelect, quatNode, null));
+                  quatUl.appendChild(quatLi);
+                }
+              }
+
+              terLi.appendChild(makeFolderHeader(ter, terNode.__count, [cat, sub, ter], onSelect, terNode, quatUl, terNode.__count >= 2));
+              if (quatUl) terLi.appendChild(quatUl);
               terUl.appendChild(terLi);
             }
           }
