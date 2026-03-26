@@ -158,8 +158,14 @@ function triggerDownload(posts, sourceUrl) {
   });
 }
 
-function triggerOpenWebapp(posts, sourceUrl) {
-  chrome.runtime.sendMessage({ action: 'OPEN_WEBAPP', posts, sourceUrl });
+async function triggerOpenWebapp(posts, sourceUrl) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  chrome.runtime.sendMessage({
+    action: 'OPEN_WEBAPP',
+    posts,
+    sourceUrl,
+    windowId: tab?.windowId
+  });
 }
 
 // Wire backup download button
@@ -247,13 +253,17 @@ ui.exportBtn.addEventListener('click', () => {
   startScrape();
 });
 
-document.getElementById('open-organizer-btn').addEventListener('click', () => {
+document.getElementById('open-organizer-btn').addEventListener('click', async () => {
   const webappUrl = chrome.runtime.getURL('webapp/index.html');
-  chrome.tabs.query({ url: webappUrl }, (tabs) => {
+  const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const windowId = currentTab?.windowId;
+
+  // Try to find an existing tab in the SAME window first
+  chrome.tabs.query({ url: webappUrl, windowId }, (tabs) => {
     if (tabs.length > 0) {
       chrome.tabs.update(tabs[0].id, { active: true });
     } else {
-      chrome.tabs.create({ url: webappUrl });
+      chrome.tabs.create({ url: webappUrl, windowId });
     }
   });
 });
