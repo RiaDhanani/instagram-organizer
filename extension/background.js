@@ -86,6 +86,19 @@ async function doScrapeChunk() {
   try { tab = await chrome.tabs.get(scraping.tabId); } catch { await finalizeScrape(); return; }
   if (!tab.url || !tab.url.includes('instagram.com')) { await finalizeScrape(); return; }
 
+  // Instagram's IntersectionObserver won't fire in a background tab, so new posts
+  // won't lazy-load. Briefly activate the Instagram tab, let it render, then
+  // immediately restore the tab the user was on.
+  let prevTabId = null;
+  if (!tab.active) {
+    try {
+      const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (active && active.id !== scraping.tabId) prevTabId = active.id;
+      await chrome.tabs.update(scraping.tabId, { active: true });
+      await new Promise(r => setTimeout(r, 300)); // let IntersectionObserver fire
+    } catch {}
+  }
+
   // Collect + scroll
   let result;
   try {
@@ -95,7 +108,16 @@ async function doScrapeChunk() {
       args: [Array.from(scraping.seen)],
     });
     result = r;
-  } catch { await finalizeScrape(); return; }
+  } catch {
+    if (prevTabId) chrome.tabs.update(prevTabId, { active: true }).catch(() => {});
+    await finalizeScrape();
+    return;
+  }
+
+  // Restore user's previous tab
+  if (prevTabId) {
+    try { await chrome.tabs.update(prevTabId, { active: true }); } catch {}
+  }
 
   for (const post of result.newPosts) {
     if (!scraping.seen.has(post.post_url)) {
@@ -110,11 +132,9 @@ async function doScrapeChunk() {
     igScrapeProgress: { count: scraping.posts.length, timestamp: Date.now() },
   });
 
-  if (scraping.retries >= 10) { await finalizeScrape(); return; }
+  if (scraping.retries >= 8) { await finalizeScrape(); return; }
 
-  // Back off when nothing new — gives Instagram time to lazy-load in background tabs
-  const delay = scraping.retries > 0 ? 5000 : 3500;
-  scraping.chunkTimer = setTimeout(doScrapeChunk, delay);
+  scraping.chunkTimer = setTimeout(doScrapeChunk, 3500);
 }
 
 // ── Finalize: save results and notify popup ────────────────────────────────────
