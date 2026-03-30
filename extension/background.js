@@ -13,18 +13,16 @@ const scraping = {
 };
 
 // ── Injected into the Instagram tab each chunk (must be self-contained) ────────
-function inPageCollect(knownUrls) {
+async function inPageCollect(knownUrls) {
   const knownSet = new Set(knownUrls);
 
-  // Instagram pauses lazy-loading when document.hidden is true (background tab).
-  // Override visibility so it keeps fetching new posts regardless of which tab is active.
+  // Force Instagram to treat this tab as visible so lazy-loading keeps running.
   try {
-    if (document.hidden) {
-      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
-      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
-      document.dispatchEvent(new Event('visibilitychange'));
-      window.dispatchEvent(new Event('focus'));
-    }
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('focus'));
   } catch {}
 
   // Three-tier anchor finding
@@ -76,7 +74,25 @@ function inPageCollect(knownUrls) {
     });
   }
 
-  window.scrollBy({ top: window.innerHeight * 1.5, behavior: 'instant' });
+  // Snapshot link count before scrolling, then scroll to absolute bottom.
+  const POST_SEL = 'a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]';
+  const countBefore = document.querySelectorAll(POST_SEL).length;
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+  window.dispatchEvent(new Event('scroll', { bubbles: true }));
+
+  // Wait (up to 5 s) for Instagram to render new posts into the DOM.
+  // Resolves early as soon as new links appear — no unnecessary waiting.
+  await new Promise(resolve => {
+    let elapsed = 0;
+    const id = setInterval(() => {
+      elapsed += 300;
+      if (document.querySelectorAll(POST_SEL).length > countBefore || elapsed >= 5000) {
+        clearInterval(id);
+        resolve();
+      }
+    }, 300);
+  });
+
   return { newPosts };
 }
 
@@ -121,9 +137,11 @@ async function doScrapeChunk() {
     igScrapeProgress: { count: scraping.posts.length, timestamp: Date.now() },
   });
 
-  if (scraping.retries >= 8) { await finalizeScrape(); return; }
+  // inPageCollect already waits up to 5 s for new content internally,
+  // so retries truly mean "nothing loaded after waiting" = end of feed.
+  if (scraping.retries >= 3) { await finalizeScrape(); return; }
 
-  scraping.chunkTimer = setTimeout(doScrapeChunk, 3500);
+  scraping.chunkTimer = setTimeout(doScrapeChunk, 500);
 }
 
 // ── Finalize: save results and notify popup ────────────────────────────────────
