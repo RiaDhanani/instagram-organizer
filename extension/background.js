@@ -16,6 +16,17 @@ const scraping = {
 function inPageCollect(knownUrls) {
   const knownSet = new Set(knownUrls);
 
+  // Instagram pauses lazy-loading when document.hidden is true (background tab).
+  // Override visibility so it keeps fetching new posts regardless of which tab is active.
+  try {
+    if (document.hidden) {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+    }
+  } catch {}
+
   // Three-tier anchor finding
   const HREF_SELECTORS = [
     'article a[href*="/p/"], article a[href*="/reel/"]',
@@ -86,19 +97,6 @@ async function doScrapeChunk() {
   try { tab = await chrome.tabs.get(scraping.tabId); } catch { await finalizeScrape(); return; }
   if (!tab.url || !tab.url.includes('instagram.com')) { await finalizeScrape(); return; }
 
-  // Instagram's IntersectionObserver won't fire in a background tab, so new posts
-  // won't lazy-load. Briefly activate the Instagram tab, let it render, then
-  // immediately restore the tab the user was on.
-  let prevTabId = null;
-  if (!tab.active) {
-    try {
-      const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (active && active.id !== scraping.tabId) prevTabId = active.id;
-      await chrome.tabs.update(scraping.tabId, { active: true });
-      await new Promise(r => setTimeout(r, 300)); // let IntersectionObserver fire
-    } catch {}
-  }
-
   // Collect + scroll
   let result;
   try {
@@ -108,16 +106,7 @@ async function doScrapeChunk() {
       args: [Array.from(scraping.seen)],
     });
     result = r;
-  } catch {
-    if (prevTabId) chrome.tabs.update(prevTabId, { active: true }).catch(() => {});
-    await finalizeScrape();
-    return;
-  }
-
-  // Restore user's previous tab
-  if (prevTabId) {
-    try { await chrome.tabs.update(prevTabId, { active: true }); } catch {}
-  }
+  } catch { await finalizeScrape(); return; }
 
   for (const post of result.newPosts) {
     if (!scraping.seen.has(post.post_url)) {

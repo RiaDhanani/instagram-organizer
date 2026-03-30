@@ -458,10 +458,10 @@ window.IG.Renderer = (() => {
   // New structure: Food > Recipes > null > Italian (quaternary)
   const CUISINE_STRINGS = new Set([
     'Italian','Mexican','Indian','Japanese','Korean','Chinese','Thai','Vietnamese',
-    'Mediterranean','American','Healthy','Baking','Drinks','Breakfast','Brunch',
+    'Mediterranean','American','Healthy','Baking','Drinks','Breakfast',
     'Dessert','French','BBQ','Pizza','Sushi',
   ]);
-  const PLACE_TYPES = new Set(['Restaurants','Bars','Cafes','Date Night','Clubs']);
+  const PLACE_TYPES = new Set(['Restaurants','Bars','Cafes & Brunch','Cafes','Date Night','Clubs']);
 
   function reclassify(cat, sub, ter, quat = null) {
     const catKey = (cat || '').toLowerCase().replace(/[\s\-_]/g, '');
@@ -498,6 +498,15 @@ window.IG.Renderer = (() => {
     // NEW: Food > Recipes > null > "Italian"
     if (cat === 'Food' && sub === 'Recipes' && ter && !quat && CUISINE_STRINGS.has(ter)) {
       return { cat: 'Food', sub: 'Recipes', ter: null, quat: ter };
+    }
+
+    // Merge Cafes / Cafe / Brunch place types into "Cafes & Brunch"
+    if (cat === 'Food' && (ter === 'Cafes' || ter === 'Cafe' || ter === 'Brunch')) {
+      return { cat, sub, ter: 'Cafes & Brunch', quat };
+    }
+    // Restaurants > Brunch (cuisine) → Cafes & Brunch place type
+    if (cat === 'Food' && ter === 'Restaurants' && quat === 'Brunch') {
+      return { cat, sub, ter: 'Cafes & Brunch', quat: null };
     }
 
     // OLD: Food > Restaurants > "Chicago Italian"

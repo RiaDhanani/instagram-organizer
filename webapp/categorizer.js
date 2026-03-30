@@ -172,12 +172,13 @@ Confidence rules:
 - "low"    — city unknown; set subcategory to "Unknown City", do NOT guess
 
 Choosing the place type (tertiary):
-- "Restaurants" — sit-down dining, casual eateries, food trucks, tasting menus
-- "Bars"        — cocktail bars, wine bars, dip bars, rooftop bars, speakeasies, pubs
-- "Cafes"       — coffee shops, bakery-cafes, brunch spots, tea houses
-- "Date Night"  — any place explicitly framed as romantic, date night, anniversary, couples
-                  outing, or intimate dining — use this OVER the other three when the
-                  romantic signal is clear in the caption or visual context
+- "Restaurants"    — sit-down dining, casual eateries, food trucks, tasting menus
+- "Bars"           — cocktail bars, wine bars, dip bars, rooftop bars, speakeasies, pubs
+- "Cafes & Brunch" — coffee shops, bakery-cafes, brunch spots, brunch restaurants, tea houses,
+                     breakfast cafes — use this for ANY brunch or cafe place
+- "Date Night"     — any place explicitly framed as romantic, date night, anniversary, couples
+                     outing, or intimate dining — use this OVER the other three when the
+                     romantic signal is clear in the caption or visual context
 
 Allowed quaternary (cuisine) values:
 "Italian"       — pizza, pasta, risotto, trattoria
@@ -191,7 +192,6 @@ Allowed quaternary (cuisine) values:
 "French"        — bistro, brasserie, patisserie
 "Thai"          — Thai restaurant, street Thai
 "Vietnamese"    — pho spot, banh mi shop
-"Brunch"        — brunch-specific menus regardless of underlying cuisine
 "Dessert"       — dessert bars, ice cream shops, sweet-focused patisseries
 null            — if cuisine is genuinely unclear
 
