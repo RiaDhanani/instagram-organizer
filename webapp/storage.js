@@ -36,5 +36,16 @@ window.IG.Storage = (() => {
     return localStorage.getItem('ig_organizer_web_search') === '1';
   }
 
-  return { savePosts, loadPosts, clearPosts, saveWebSearch, loadWebSearch };
+  const API_KEY = 'ig_organizer_openrouter_key';
+
+  function saveApiKey(key) {
+    if (key) localStorage.setItem(API_KEY, key);
+    else localStorage.removeItem(API_KEY);
+  }
+
+  function loadApiKey() {
+    return localStorage.getItem(API_KEY) || '';
+  }
+
+  return { savePosts, loadPosts, clearPosts, saveWebSearch, loadWebSearch, saveApiKey, loadApiKey };
 })();

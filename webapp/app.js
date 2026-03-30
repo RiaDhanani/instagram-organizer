@@ -40,92 +40,99 @@ const dom = {
   closeSettingsBtn: $('close-settings-btn'),
   clearDataBtn: $('clear-data-btn'),
   downloadJsonBtn: $('download-json-btn'),
-  creditsPanel: $('credits-panel'),
-  freeModelSelect: $('free-model-select'),
-  userApiKeyInput: $('user-api-key-input'),
-  retryCategBtn: $('retry-categorize-btn'),
-  creditsStatus: $('credits-status'),
-  creditsKeyHint: $('credits-key-hint'),
+  creditsPopup: $('credits-popup'),
+  creditsPopupClose: $('credits-popup-close'),
+  creditsPopupSave: $('credits-popup-save'),
+  creditsKeyInput: $('credits-key-input'),
+  creditsPopupStatus: $('credits-popup-status'),
+  errorPopup: $('error-popup'),
+  errorPopupTitle: $('error-popup-title'),
+  errorPopupBody: $('error-popup-body'),
+  errorPopupClose: $('error-popup-close'),
 };
 
-// ─── Credits / Free model fallback ───────────────────────────────────────────
+// ─── Error Popup ──────────────────────────────────────────────────────────────
 
-const FREE_MODELS = [
-  { id: 'google/gemma-3-27b-it:free',             name: 'Google Gemma 3 27B' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Meta Llama 3.3 70B' },
-  { id: 'deepseek/deepseek-chat:free',            name: 'DeepSeek V3' },
-  { id: 'qwen/qwen-2.5-72b-instruct:free',        name: 'Qwen 2.5 72B' },
-  { id: 'microsoft/phi-4:free',                   name: 'Microsoft Phi-4' },
-];
-
-const failedModels = new Set();
-
-function estimateCost(postCount) {
-  const batches = Math.ceil(postCount / 10);
-  const inputTokens = batches * 2000;
-  const outputTokens = batches * 500;
-  const cost = (inputTokens * 0.15 + outputTokens * 0.60) / 1_000_000;
-  return cost < 0.01 ? '<$0.01' : `~$${cost.toFixed(2)}`;
+function showErrorPopup(title, body) {
+  dom.errorPopupTitle.textContent = title;
+  dom.errorPopupBody.textContent = body;
+  dom.errorPopup.classList.remove('hidden');
 }
 
-function showCreditsPanel(failedModel) {
-  if (failedModel) failedModels.add(failedModel);
-
-  // Populate dropdown
-  dom.freeModelSelect.innerHTML = '';
-  let firstAvailable = null;
-  for (const m of FREE_MODELS) {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    const exhausted = failedModels.has(m.id);
-    opt.textContent = exhausted ? `${m.name} ($0.00 — rate limited)` : `${m.name} ($0.00)`;
-    opt.disabled = exhausted;
-    if (!exhausted && !firstAvailable) { firstAvailable = m.id; opt.selected = true; }
-    dom.freeModelSelect.appendChild(opt);
-  }
-
-  // Update key hint with cost estimate for their posts
-  const n = state.posts ? state.posts.filter((p) => !p.categorization || p.categorization.category === 'Uncategorized').length : 0;
-  if (n > 0) {
-    dom.creditsKeyHint.textContent = `Key is sent directly to OpenRouter from your browser — never stored on our servers. Using gpt-4o-mini, cost for ${n} posts: ${estimateCost(n)}.`;
-  }
-
-  const allExhausted = FREE_MODELS.every((m) => failedModels.has(m.id));
-  if (allExhausted) {
-    dom.freeModelSelect.disabled = true;
-    dom.creditsStatus.textContent = 'All free models are currently rate-limited. Add your own OpenRouter key below.';
-    dom.creditsStatus.classList.remove('hidden');
-  } else {
-    dom.freeModelSelect.disabled = false;
-    dom.creditsStatus.classList.add('hidden');
-  }
-
-  dom.creditsPanel.classList.remove('hidden');
-}
+dom.errorPopupClose.addEventListener('click', () => dom.errorPopup.classList.add('hidden'));
+dom.errorPopup.addEventListener('click', (e) => {
+  if (e.target === dom.errorPopup) dom.errorPopup.classList.add('hidden');
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+const BRIDGE_KEY = 'ig_pending_posts_bridge';
+
+function handleBridgeData(raw) {
+  try {
+    const data = JSON.parse(raw);
+    if (!data.posts || !Array.isArray(data.posts)) return false;
+    // Merge with existing posts (deduplicate by post_url)
+    const existing = Storage.loadPosts();
+    const existingUrls = new Set((existing?.posts || []).map((p) => p.post_url));
+    const merged = {
+      exported_at: data.exported_at,
+      source_url: data.source_url,
+      posts: [...(existing?.posts || []), ...data.posts.filter((p) => !existingUrls.has(p.post_url))],
+    };
+    merged.total_count = merged.posts.length;
+    state.rawData = merged;
+    state.posts = merged.posts;
+    Storage.savePosts(merged);
+    return true;
+  } catch { return false; }
+}
+
 function init() {
+  // Check for data injected by the extension content script (vercel-bridge.js)
+  const bridgeRaw = localStorage.getItem(BRIDGE_KEY);
+  if (bridgeRaw) {
+    localStorage.removeItem(BRIDGE_KEY);
+    if (handleBridgeData(bridgeRaw)) {
+      enterLoadedOrCategorizedMode();
+      setupEventListeners();
+      return;
+    }
+  }
+
+  // Listen for late bridge data (content script ran after DOMContentLoaded)
+  window.addEventListener('ig:pending-posts', () => {
+    const raw = localStorage.getItem(BRIDGE_KEY);
+    if (!raw) return;
+    localStorage.removeItem(BRIDGE_KEY);
+    if (handleBridgeData(raw)) enterLoadedOrCategorizedMode();
+  });
+
+  // Normal load path — check existing localStorage
   const saved = Storage.loadPosts();
   if (saved) {
     state.rawData = saved;
     state.posts = saved.posts;
-    const hasCategorized = state.posts.some(
-      (p) => p.categorization && p.categorization.category !== 'Uncategorized'
-    );
-    const hasUncategorized = state.posts.some(
-      (p) => !p.categorization || p.categorization.category === 'Uncategorized'
-    );
-    if (hasCategorized && hasUncategorized) {
-      enterMixedMode();
-    } else if (hasCategorized) {
-      enterCategorizedMode();
-    } else {
-      enterLoadedMode();
-    }
+    enterLoadedOrCategorizedMode();
   }
 
   setupEventListeners();
+}
+
+function enterLoadedOrCategorizedMode() {
+  const hasCategorized = state.posts.some(
+    (p) => p.categorization && p.categorization.category !== 'Uncategorized'
+  );
+  const hasUncategorized = state.posts.some(
+    (p) => !p.categorization || p.categorization.category === 'Uncategorized'
+  );
+  if (hasCategorized && hasUncategorized) {
+    enterMixedMode();
+  } else if (hasCategorized) {
+    enterCategorizedMode();
+  } else {
+    enterLoadedMode();
+  }
 }
 
 function setupEventListeners() {
@@ -175,25 +182,19 @@ function setupEventListeners() {
     if (e.target === dom.settingsModal) dom.settingsModal.classList.add('hidden');
   });
 
-  dom.retryCategBtn.addEventListener('click', async () => {
-    const userKey = dom.userApiKeyInput.value.trim();
-    const allExhausted = FREE_MODELS.every((m) => failedModels.has(m.id));
-    let model = null;
-    let userApiKey = null;
-
-    if (userKey) {
-      userApiKey = userKey;
-      // model stays null → server uses gpt-4o-mini
-    } else if (allExhausted) {
-      dom.creditsStatus.textContent = 'Please add your own OpenRouter API key above.';
-      dom.creditsStatus.classList.remove('hidden');
+  dom.creditsPopupSave.addEventListener('click', () => {
+    const key = dom.creditsKeyInput.value.trim();
+    if (!key) {
+      dom.creditsPopupStatus.textContent = 'Please enter a key.';
+      dom.creditsPopupStatus.classList.remove('hidden');
       return;
-    } else {
-      model = dom.freeModelSelect.value;
     }
-
-    dom.creditsPanel.classList.add('hidden');
-    await startCategorization(model, userApiKey);
+    Storage.saveApiKey(key);
+    dom.creditsPopup.classList.add('hidden');
+    startCategorization();
+  });
+  dom.creditsPopupClose.addEventListener('click', () => {
+    dom.creditsPopup.classList.add('hidden');
   });
 
   dom.clearDataBtn.addEventListener('click', () => {
@@ -367,7 +368,8 @@ function applySearch() {
 
 let categorizationController = null;
 
-async function startCategorization(model = null, userApiKey = null) {
+async function startCategorization() {
+  const userApiKey = Storage.loadApiKey() || null;
   categorizationController = { paused: false };
 
   dom.categorizeBtn.disabled = true;
@@ -416,7 +418,7 @@ async function startCategorization(model = null, userApiKey = null) {
   }
 
   try {
-    const { results, errorCount } = await Categorizer.categorizeAll(
+    const { results, errorCount, errorLog } = await Categorizer.categorizeAll(
       toProcess,
       (current, total, errors, lastError, lastResult) => {
         const pct = Math.round((current / total) * 100);
@@ -433,7 +435,7 @@ async function startCategorization(model = null, userApiKey = null) {
       skipImages,
       categorizationController,
       Storage.loadWebSearch(),
-      { model, userApiKey }
+      { userApiKey }
     );
 
     dom.pauseBtn.classList.add('hidden');
@@ -444,13 +446,18 @@ async function startCategorization(model = null, userApiKey = null) {
     state.rawData = { ...state.rawData, posts: state.posts };
     Storage.savePosts(state.rawData);
 
-    if (errorCount > 0) {
-      const ok = results.length - errorCount;
-      dom.categorizeProgressText.textContent = `Done — ${ok} categorized, ${errorCount} failed (shown as Uncategorized)`;
-      await new Promise((r) => setTimeout(r, 2500));
-    }
-
     enterCategorizedMode();
+
+    if (errorCount > 0) {
+      const uniqueErrors = [...new Set(errorLog)];
+      const errorLines = uniqueErrors.length
+        ? uniqueErrors.join('\n')
+        : 'No additional detail available.';
+      showErrorPopup(
+        `${errorCount} post${errorCount > 1 ? 's' : ''} failed to categorize`,
+        `These posts are shown as Uncategorized.\n\nErrors:\n${errorLines}`
+      );
+    }
   } catch (err) {
     dom.pauseBtn.classList.add('hidden');
     categorizationController = null;
@@ -458,19 +465,12 @@ async function startCategorization(model = null, userApiKey = null) {
     dom.categorizeBtn.textContent = 'Auto Categorize';
     dom.categorizeProgress.classList.add('hidden');
 
-    if (err.outOfCredits) {
-      if (userApiKey) {
-        // User's own key is also out of credits
-        showCreditsPanel();
-        dom.creditsStatus.textContent = 'Your OpenRouter key is out of credits. Add more credits at openrouter.ai or try a free model.';
-        dom.creditsStatus.classList.remove('hidden');
-      } else {
-        showCreditsPanel(null);
-      }
-    } else if (err.modelRateLimited) {
-      showCreditsPanel(err.model || model);
+    if (err.outOfCredits || err.modelRateLimited) {
+      dom.creditsKeyInput.value = '';
+      dom.creditsPopupStatus.classList.add('hidden');
+      dom.creditsPopup.classList.remove('hidden');
     } else {
-      alert('Categorization error: ' + err.message);
+      showErrorPopup('Categorization failed', err.message);
     }
   }
 }

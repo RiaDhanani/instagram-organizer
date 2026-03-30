@@ -1,14 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Instagram Saved Posts Organizer",
-  "version": "1.0.1",
-  "description": "Export your Instagram saved posts as JSON for organization",
+  "version": "1.0.2",
+  "description": "Export your Instagram saved posts and organize them with AI",
   "homepage_url": "https://saved-posts-organizer.vercel.app",
-  "permissions": ["activeTab", "scripting", "downloads", "storage", "tabs"],
-  "host_permissions": ["https://www.instagram.com/*"],
+  "permissions": ["activeTab", "scripting", "downloads", "storage", "tabs", "windows"],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://saved-posts-organizer.vercel.app/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://saved-posts-organizer.vercel.app/*"],
+      "js": ["vercel-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {

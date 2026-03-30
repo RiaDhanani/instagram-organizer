@@ -76,36 +76,7 @@
       </div>
     </div>
 
-    <!-- Credits exhausted panel (shown when server key runs out of credits) -->
-    <div id="credits-panel" class="hidden">
-      <div class="credits-panel-body">
-        <div class="credits-msg-row">
-          <span class="credits-warn-icon">⚠</span>
-          <div>
-            <strong class="credits-title">Server credits exhausted</strong>
-            <p class="credits-desc">The shared API key ran out of credits. Choose a free model below or add your own <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">OpenRouter key</a>.</p>
-          </div>
-        </div>
-
-        <div class="credits-field">
-          <label class="credits-label">Free model <span class="credits-label-hint">(no credits needed)</span></label>
-          <select id="free-model-select"></select>
-        </div>
-
-        <div class="credits-divider"><span>or</span></div>
-
-        <div class="credits-field">
-          <label class="credits-label">Your OpenRouter API key</label>
-          <input id="user-api-key-input" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
-          <p id="credits-key-hint" class="credits-key-hint">Key is sent directly to OpenRouter from your browser — never stored on our servers.</p>
-        </div>
-
-        <div class="credits-actions">
-          <button id="retry-categorize-btn" class="btn-primary">Retry Categorization</button>
-          <p id="credits-status" class="credits-status hidden"></p>
-        </div>
-      </div>
-    </div>
+    <!-- Credits exhausted popup (shown when server credits run out) -->
 
     <!-- ── Upload Section ───────────────────────────────────────────────────── -->
     <section id="upload-section">
@@ -188,8 +159,8 @@
     <div class="modal-actions">
       <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
       <button class="btn-ghost" id="download-json-btn">Download JSON</button>
-      <button class="btn-primary" id="close-settings-btn">Close</button>
     </div>
+    <button class="modal-x" id="close-settings-btn" title="Close">✕</button>
   </div>
 </div>
 
@@ -218,6 +189,34 @@
     <p class="guide-desc">Once your key is saved, click <strong>Auto Categorize</strong> to automatically organize all your saved posts into categories.</p>
     <div class="guide-footer">
       <button class="guide-done-btn" id="guide-done">Got it ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Error Popup ─────────────────────────────────────────────────────────── -->
+<div id="error-popup" class="hidden">
+  <div class="error-popup-box">
+    <h3 class="error-popup-title" id="error-popup-title"></h3>
+    <pre class="error-popup-body" id="error-popup-body"></pre>
+    <div class="error-popup-actions">
+      <button id="error-popup-close" class="btn-primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Credits Popup ───────────────────────────────────────────────────────── -->
+<div id="credits-popup" class="hidden">
+  <div class="credits-popup-box">
+    <button class="modal-x" id="credits-popup-close" title="Close">✕</button>
+    <div class="credits-popup-top">
+      <span class="credits-popup-icon">⚠</span>
+      <h3 class="credits-popup-title">Out of credits</h3>
+    </div>
+    <p class="credits-popup-desc">Please add your own OpenRouter API key and add credits to any LLM available in OpenRouter. Key is stored locally in your browser. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">Get your API key →</a></p>
+    <input type="password" id="credits-key-input" class="credits-key-input" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+    <p class="credits-popup-status hidden" id="credits-popup-status"></p>
+    <div class="credits-popup-actions">
+      <button id="credits-popup-save" class="btn-primary">Save & Categorize</button>
     </div>
   </div>
 </div>

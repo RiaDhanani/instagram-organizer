@@ -41,17 +41,16 @@
       </div>
 
       <div id="result" style="display:none">
+        <button class="popup-x" id="popup-close-btn" title="Close">✕</button>
         <div class="result-icon">✓</div>
         <p class="result-msg" id="result-msg"></p>
-        <p class="hint" id="hint-text">Opening organizer tab automatically…</p>
-        <button id="reexport-btn" class="btn-secondary" style="display:none">Re-export all posts</button>
-        <button id="download-btn" class="btn-secondary">Download JSON backup</button>
+        <div class="result-actions">
+          <button id="download-btn" class="btn-action">Download JSON</button>
+          <button id="open-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
+        </div>
+        <p class="result-status" id="result-status"></p>
       </div>
     </div>
-  </div>
-
-  <div id="footer">
-    <button id="open-organizer-btn">Open Organizer</button>
   </div>
 
   <script src="popup.js"></script>

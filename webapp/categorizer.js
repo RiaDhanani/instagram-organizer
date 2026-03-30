@@ -512,6 +512,7 @@ quaternary: null
     const BATCH_SIZE = 10;
     const CONCURRENCY = 3;
     const results = new Array(posts.length);
+    const errorLog = [];
     let nextBatchStart = 0;
     let completed = 0;
     let errorCount = 0;
@@ -528,7 +529,12 @@ quaternary: null
         // Expired CDN image → retry text-only
         if (p.thumbnail_src && [400, 403, 422].includes(err.status)) {
           try { return await callCompletions(buildPostContent({ ...p, thumbnail_src: null }), { model, userApiKey }); }
-          catch (e2) { if (e2.fatal) throw e2; }
+          catch (e2) {
+            if (e2.fatal) throw e2;
+            errorLog.push(e2.message);
+          }
+        } else {
+          errorLog.push(err.message);
         }
         return null;
       }
@@ -623,7 +629,7 @@ quaternary: null
             category: 'Uncategorized', subcategory: 'Error',
             tertiary: null, quaternary: null, tags: [], confidence: 'low',
           };
-          if (!finalCats[i]) { errorCount++; lastError = 'Failed to categorize'; }
+          if (!finalCats[i]) { errorCount++; lastError = errorLog[errorLog.length - 1] || 'Failed to categorize'; }
           results[globalIdx] = { ...posts[globalIdx], categorization };
           completed++;
           onProgress(completed, posts.length, errorCount, lastError, results[globalIdx]);
@@ -634,7 +640,7 @@ quaternary: null
     const workerCount = Math.min(CONCURRENCY, Math.ceil(posts.length / BATCH_SIZE));
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-    return { results, errorCount };
+    return { results, errorCount, errorLog };
   }
 
   return { categorizeAll };
