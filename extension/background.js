@@ -110,9 +110,11 @@ async function doScrapeChunk() {
     igScrapeProgress: { count: scraping.posts.length, timestamp: Date.now() },
   });
 
-  if (scraping.retries >= 3) { await finalizeScrape(); return; }
+  if (scraping.retries >= 10) { await finalizeScrape(); return; }
 
-  scraping.chunkTimer = setTimeout(doScrapeChunk, 3500);
+  // Back off when nothing new — gives Instagram time to lazy-load in background tabs
+  const delay = scraping.retries > 0 ? 5000 : 3500;
+  scraping.chunkTimer = setTimeout(doScrapeChunk, delay);
 }
 
 // ── Finalize: save results and notify popup ────────────────────────────────────

@@ -1,4 +1,4 @@
-// categorizer.js — categorization client using server-side proxy (OpenRouter)
+// categorizer.js — OpenAI Vision API client with batching, rate limiting, and fallback
 window.IG = window.IG || {};
 
 window.IG.Categorizer = (() => {
@@ -13,9 +13,17 @@ Each object must have exactly this structure:
   "subcategory": "string",
   "tertiary": "string or null",
   "quaternary": "string or null",
+  "quinary": "string or null",
   "tags": ["string"],
   "confidence": "high" | "medium" | "low"
 }
+
+Field mapping:
+  category    = "Food"
+  subcategory = "Recipes" OR [City Name]
+  tertiary    = [Cuisine] (for Recipes) OR "Restaurants" | "Bars" | "Cafes" | "Date Night" (for city posts)
+  quaternary  = null (for Recipes) OR [Cuisine] (for city posts)
+  quinary     = null (always, reserved for future use)
 
 ---
 
@@ -30,22 +38,24 @@ Each object must have exactly this structure:
 - Vibe signals: romantic lighting, date night setting, bar menu, cocktails, etc.
 
 ### PASS 2 — Classify using those signals
-- Use extracted signals to fill every field
-- Tags must be written before tertiary/quaternary — they are your evidence
-- If tags contradict your tertiary, fix the tertiary, never the tags
-- Run the pre-output checklist before writing any JSON
+- Determine first: is this home cooking/recipe content OR a real place to visit?
+  - Home cooking, how-to, ingredients, meal prep → subcategory: "Recipes"
+  - Restaurant, bar, cafe, date night spot → subcategory: [City Name]
+- Write tags first — they are your evidence. Tertiary and quaternary are conclusions drawn from them.
+- If tags contradict your tertiary or quaternary, fix those fields — never the tags.
+- Run the pre-output checklist before writing any JSON.
 
 ### PRE-OUTPUT CHECKLIST
 Before writing any output, verify every field:
-□ Is category one of the valid taxonomy values?
-□ Is subcategory valid for that category (no "General", "Unknown", "Mixed")?
-□ For Food: is subcategory correctly one of — "Recipes", [City Name], or "Unknown City"?
-□ For city-based Food: does tertiary correctly reflect the place type (Restaurants/Bars/Cafes/Date Night)?
-□ For Recipes: is quaternary word-for-word one of the allowed cuisine strings?
-□ Do tags align with the classification? (pasta in tags → Italian in quaternary)
+□ Is this home cooking or a real place? subcategory "Recipes" vs [City Name] must be correct.
+□ For Recipes: is tertiary word-for-word one of the 11 allowed cuisine strings?
+□ For city posts: is subcategory a real city name in Title Case?
+□ For city posts: is tertiary exactly one of — Restaurants, Bars, Cafes, Date Night?
+□ For city posts: is quaternary a valid cuisine string or null?
+□ For Travel: is subcategory a real destination and tertiary a valid activity?
+□ Do tags support the classification chosen?
 □ Is confidence correctly set per the confidence rules?
-□ Is any bar, cocktail venue, or nightlife place leaking into Food instead of being handled correctly?
-□ For batches: is the same reasoning depth applied to every post, including the last one?
+□ For batches: is the same reasoning depth applied to every post, including the last?
 If any box fails → fix before outputting.
 
 ---
@@ -53,7 +63,7 @@ If any box fails → fix before outputting.
 ## GLOBAL RULES
 
 ### Labels
-- NEVER use: "General", "Uncategorized", "Unknown", "Mixed", "Other" as subcategory
+- NEVER use: "General", "Uncategorized", "Unknown", "Mixed", "Other" as any field value
 - NEVER use restaurant names, account handles, hashtags, dish names, or sentence fragments in any field
 - NEVER write phrases like "has food", "has restaurant", "looks like" anywhere
 - All labels must be Title Case noun phrases
@@ -61,16 +71,17 @@ If any box fails → fix before outputting.
 
 ### Tags
 - Always 4–6 specific, searchable lowercase strings, no hashtags, no punctuation
-- Must include: account handle (without @), food/item type, city if known, style or vibe, relevant descriptors
+- Include: account handle (without @), food or item type, city if known, style or vibe, relevant descriptors
 - Tags are evidence — classification fields are conclusions drawn from them
 
 ### Confidence
-- "high" — city confirmed via explicit location tag or caption mention
+- "high"   — city confirmed via explicit location tag or caption mention
 - "medium" — city inferred from account handle alone (e.g. @chicagoeats → Chicago)
-- "low" — city guessed from indirect signals or unknown; a web search will be triggered automatically
+- "low"    — city unknown or only guessable from indirect signals; a web search will be triggered automatically
 
 ### Batch processing
-Apply identical reasoning depth to every post regardless of position. Never abbreviate or simplify later posts in an array.
+Apply identical reasoning depth to every post regardless of position in the array.
+Never abbreviate or simplify later posts.
 
 ---
 
@@ -78,20 +89,17 @@ Apply identical reasoning depth to every post regardless of position. Never abbr
 
 ---
 
-### FOOD
+### FOOD — Recipes
 
-First determine: is this a recipe/home cooking OR a place (restaurant, cafe, bar, date night spot)?
-
----
-
-#### FOOD — Recipes (home cooking, how-to, ingredient-focused content)
+For any home cooking, how-to, ingredient-focused, or meal prep content.
 
 category:    "Food"
 subcategory: "Recipes"
-tertiary:    null
-quaternary:  EXACTLY one of the cuisine strings below
+tertiary:    EXACTLY one of the 11 allowed cuisine strings below — no other value is valid
+quaternary:  null
+quinary:     null
 
-Allowed quaternary values — copy letter-for-letter, no other value is valid:
+Allowed tertiary values — copy letter-for-letter:
 
 "Italian"       — pasta, pizza, risotto, gnocchi, focaccia
 "Mexican"       — tacos, burritos, enchiladas, guacamole, quesadillas
@@ -104,114 +112,144 @@ Allowed quaternary values — copy letter-for-letter, no other value is valid:
 "Mediterranean" — Greek, Lebanese, Turkish, Moroccan, Middle Eastern, North African
 "American"      — burgers, BBQ, mac and cheese, fried chicken, sandwiches, comfort food
 "Healthy"       — salads, grain bowls, smoothies, acai bowls, savory wraps (NOT baked goods)
-"Baking"        — ALL baked goods AND all desserts including healthy versions: bread, muffins,
+"Baking"        — ALL baked goods and ALL desserts including healthy versions: bread, muffins,
                   banana bread, cakes, cookies, brownies, pies, cheesecake, ice cream, energy
-                  balls, protein bars, protein cookies, date balls, granola bars — if it was
-                  baked or is a sweet treat, it is always Baking
+                  balls, protein bars, protein cookies, date balls, granola bars
 "Drinks"        — cocktails, mocktails, juices, coffee, tea, any beverage recipe
 "Breakfast"     — pancakes, waffles, eggs, oatmeal, granola, morning meals
+"Cafe & Brunch" — cafe-style recipes, brunch spreads, mimosas, avocado toast, eggs benedict
 
-Baking vs Healthy — these are mutually exclusive:
+Baking vs Healthy — mutually exclusive:
 If the post contains ANY of: baked, oven, flour, butter, sugar, dough, batter, chocolate,
-protein bar, energy ball, granola bar → quaternary is ALWAYS "Baking" regardless of any
+protein bar, energy ball, granola bar → tertiary is ALWAYS "Baking" regardless of any
 health claims in the caption.
 
-Diet labels never appear in quaternary — tags only:
+Diet labels never appear in tertiary — tags only:
 - Vegan tacos → "Mexican"
 - Vegan curry → "Indian"
 - Healthy muffin → "Baking"
 - Keto pasta → "Italian"
-- Vegan with no cuisine signal → "Healthy" (if not baked)
+- Vegan with no cuisine signal → "Healthy" (only if not baked)
 
-Correction table — if you were about to write any of these, apply the fix:
+Correction table — apply before outputting:
 "Desserts"              → "Baking"
 "Sweets"                → "Baking"
 "Snacks" (sweet/baked)  → "Baking"
 "Snacks" (savory)       → "Healthy"
-"Comfort Food"          → "American"
-"Asian"                 → pick the specific cuisine (Japanese/Korean/Chinese/Thai/Vietnamese)
-                          use "Asian" ONLY if the cuisine is genuinely unclear or fusion across multiple
-"Asian Fusion"          → "Asian" (only valid use of Asian as a quaternary)
+"Asian"                 → pick specific (Japanese/Korean/Chinese/Thai/Vietnamese)
+                          use "Asian" ONLY if genuinely mixed across multiple cuisines
+"Asian Fusion"          → "Japanese" or closest specific cuisine
 "[Cuisine] Vegetarian"  → "[That cuisine]"
 "Vegan [Cuisine]"       → "[That cuisine]"
-Anything else           → pick the closest match from the allowed strings above
+"Brunch"                → "Cafe & Brunch"
+"Cafe"                  → "Cafe & Brunch"
+Anything else           → pick the closest match from the 15 allowed strings
 
 ---
 
-#### FOOD — City-based places (restaurants, cafes, bars, date night spots)
+### FOOD — City-based places
 
-For any place-based food post, the hierarchy is:
+For any real place to visit: restaurant, bar, cafe, date night spot.
+
+Hierarchy: Food → [City] → [Place Type] → [Cuisine]
 
 category:    "Food"
-subcategory: [City Name]      — real city name, Title Case (e.g. "Chicago", "New York", "Tokyo")
-tertiary:    [Place Type]     — exactly one of: "Restaurants", "Bars", "Cafes", "Date Night"
-quaternary:  [Cuisine]        — cuisine type from the list below, or null if unclear
+subcategory: [City Name] — real city name, Title Case (e.g. "Chicago", "New York", "Tokyo")
+             OR "Unknown City" if city cannot be identified
+tertiary:    EXACTLY one of: "Restaurants" | "Bars" | "Cafes" | "Date Night"
+quaternary:  [Cuisine] from the allowed list below, or null if genuinely unclear
+quinary:     null
 
 Extracting the city — check in this order:
 1. Explicit caption mention
 2. Location tag
-3. Hashtag (e.g. #chicagofood → Chicago)
+3. Hashtag (e.g. #chicagofood → Chicago, #nycfood → New York)
 4. Account handle (e.g. @chicagoeats → Chicago, @nycdining → New York, @londonfoodie → London)
 
-- City confirmed via location tag or caption → confidence: "high"
-- City inferred from account handle only → confidence: "medium"
-- City cannot be identified → subcategory: "Unknown City", confidence: "low"
-  (web search will be triggered to identify; do NOT guess a city)
+Confidence rules:
+- "high"   — city confirmed via location tag or explicit caption mention
+- "medium" — city inferred from account handle alone
+- "low"    — city unknown; set subcategory to "Unknown City", do NOT guess
 
 Choosing the place type (tertiary):
 - "Restaurants" — sit-down dining, casual eateries, food trucks, tasting menus
 - "Bars"        — cocktail bars, wine bars, dip bars, rooftop bars, speakeasies, pubs
 - "Cafes"       — coffee shops, bakery-cafes, brunch spots, tea houses
-- "Date Night"  — any place explicitly framed as romantic, date night, anniversary,
-                  couples outing, or intimate dining — use this OVER Restaurants/Bars/Cafes
-                  when the date night signal is clear in the caption or vibe
+- "Date Night"  — any place explicitly framed as romantic, date night, anniversary, couples
+                  outing, or intimate dining — use this OVER the other three when the
+                  romantic signal is clear in the caption or visual context
 
-Cuisine (quaternary) — parent category only, never a dish name:
-"Italian"       — pizza, pasta, risotto
+Allowed quaternary (cuisine) values:
+"Italian"       — pizza, pasta, risotto, trattoria
 "Japanese"      — sushi, ramen, omakase, izakaya
-"Korean"        — Korean BBQ, pojangmacha
-"Chinese"       — dim sum, Sichuan, Cantonese
-"Mexican"       — tacos, street food, cantina
-"Indian"        — curry house, tandoori, dosa
+"Korean"        — Korean BBQ, Korean fried chicken
+"Chinese"       — dim sum, Sichuan, Cantonese, hot pot
+"Mexican"       — tacos, cantina, street food, taqueria
+"Indian"        — curry house, tandoori, dosa, chaat
 "American"      — burgers, BBQ, diner, steakhouse
 "Mediterranean" — Greek, Turkish, Lebanese, Middle Eastern
 "French"        — bistro, brasserie, patisserie
 "Thai"          — Thai restaurant, street Thai
 "Vietnamese"    — pho spot, banh mi shop
-"Brunch"        — brunch-specific menus regardless of cuisine
-"Dessert"       — dessert bars, ice cream shops, patisseries focused on sweets
+"Brunch"        — brunch-specific menus regardless of underlying cuisine
+"Dessert"       — dessert bars, ice cream shops, sweet-focused patisseries
 null            — if cuisine is genuinely unclear
 
 Known account → city mappings (use exactly as written):
-@gus_sipanddip → subcategory: "Chicago", tertiary: "Bars"
+@gus_sipanddip → subcategory: "Chicago", tertiary: "Bars", quaternary: null
 
 ---
 
-### NIGHTLIFE
-
-ANY nightclub, dancing venue, club night, rave, or party venue:
+### NIGHTLIFE (clubs and dancing venues only)
 
 category:    "Nightlife"
 subcategory: "Clubs"
 tertiary:    [City] or null
 quaternary:  null
+quinary:     null
 
-Note: cocktail bars, wine bars, rooftop bars, and pubs → Food > [City] > Bars, NOT Nightlife.
-Only use Nightlife > Clubs for venues where the primary purpose is dancing or clubbing.
+Note: cocktail bars, wine bars, rooftop bars, pubs → Food > [City] > Bars, NOT Nightlife.
+Only use Nightlife for venues where the primary purpose is dancing or clubbing.
+
+---
+
+### TRAVEL
+
+Hierarchy: Travel → Destination → Activity
+
+category:    "Travel"
+subcategory: [Destination] — city, region, or country in Title Case
+             e.g. "Bali", "Japan", "Chicago", "Amalfi Coast", "Patagonia"
+             OR "Unknown" if destination cannot be identified
+tertiary:    EXACTLY one activity from the allowed list below
+quaternary:  null
+quinary:     null
+
+Allowed tertiary (activity) values:
+"Hiking"             — trails, trekking, national parks, mountain hikes
+"Nature & Outdoors"  — scenic drives, road trips, forests, waterfalls, countryside
+"Beach"              — coastal trips, ocean, islands, snorkeling, sunsets
+"City Exploration"   — urban sightseeing, neighborhoods, street photography, city guides
+"Food & Drink"       — travel posts centered on eating, food markets, culinary tourism
+"Architecture"       — landmarks, buildings, historical sites, ruins
+"Culture"            — museums, art, festivals, local traditions, spiritual sites
+"Adventure"          — extreme sports, surfing, skiing, diving, bungee jumping
+"Day Trip"           — short excursions, weekend trips, nearby escapes
+"Nightlife"          — bars, clubs, night scenes in travel context
+
+Rules:
+- Pick the activity that best describes WHY someone saved the post
+- A mountain view saved for the hike → "Hiking" not "Nature & Outdoors"
+- A city post with clear food focus → "Food & Drink" not "City Exploration"
+- A restaurant or bar post while traveling → Food category with foreign city, NOT Travel
 
 ---
 
 ### WEDDING
 
-Trigger on ANY wedding-related content: real weddings, inspiration, planning, bridal content.
-
 category:    "Wedding"
-subcategory: Outfits | Decor | Florals | Food | Makeup | Venues | Poses | Jewelry | Invitations | Planning
-tertiary:    optional detail — e.g. "Bridal Gown", "Table Setting", "Ceremony Arch", "Reception", "Engagement"
-quaternary:  null
-
-When both Outfits and Florals apply, choose based on the dominant visual element.
-
+subcategory: Outfits | Decor | Food | Makeup | Venues | Poses | Jewelry | Invitations | Planning
+tertiary:    null
 ---
 
 ### HOME DECOR
@@ -220,6 +258,7 @@ category:    "Home Decor"
 subcategory: Living Room | Bedroom | Kitchen | Bathroom | Outdoor | Entryway | Home Office | Overall
 tertiary:    Minimalist | Boho | Modern | Vintage | Cozy | Dark Academia | Industrial | Maximalist | Coastal | Japandi
 quaternary:  null
+quinary:     null
 
 ---
 
@@ -227,20 +266,9 @@ quaternary:  null
 
 category:    "Fashion"
 subcategory: Outfits | Streetwear | Formal | Casual | Accessories | Shoes | Bags | Jewelry | Activewear
-tertiary:    Summer | Winter | Date Night | Work | Travel | Festival | Transitional
+tertiary:    Summer | Winter | Date Night | Work | Travel | Festival 
 quaternary:  null
-
----
-
-### TRAVEL
-
-category:    "Travel"
-subcategory: [City or Country] | Nature & Road Trip | Beach | Mountains
-             — always "Nature & Road Trip" for hikes, outdoor adventures, national parks, road trips
-             — never "Nature" or "Road Trip" separately
-             — never use "Nightlife" here; bar content goes to Food > [City] > Bars
-tertiary:    Architecture | Street Food | Hiking | Beaches | Culture | Day Trip | Scenic Views
-quaternary:  null
+quinary:     null
 
 ---
 
@@ -248,8 +276,9 @@ quaternary:  null
 
 category:    "Fitness"
 subcategory: Yoga | Gym | Running | Pilates | HIIT | Nutrition | Wellness | Dance | Cycling | Swimming
-tertiary:    Strength | Flexibility | Cardio | Meal Prep | Recovery  (optional)
+tertiary:    Strength | Flexibility | Cardio | Meal Prep | Recovery
 quaternary:  null
+quinary:     null
 
 ---
 
@@ -257,8 +286,9 @@ quaternary:  null
 
 category:    "Beauty"
 subcategory: Skincare | Makeup | Haircare | Nails | Fragrance
-tertiary:    Routine | Tutorial | Product Review | Natural | Bold  (optional)
+tertiary:    Routine | Tutorial | Product Review | Natural | Bold
 quaternary:  null
+quinary:     null
 
 ---
 
@@ -268,6 +298,7 @@ category:    "Art & Design"
 subcategory: Painting | Photography | Illustration | Architecture | Graphic Design | Sculpture | Interior Design | Digital Art
 tertiary:    style or medium if distinguishable
 quaternary:  null
+quinary:     null
 
 ---
 
@@ -280,6 +311,7 @@ tertiary for Movies:   Rom-Com | Action | Drama | Horror | Thriller | Animation 
 tertiary for TV Shows: Rom-Com | Drama | Reality | Crime | Sci-Fi | Animation | Comedy | K-Drama
 tertiary for Music:    Pop | Hip-Hop | R&B | Indie | Classical | Electronic | Country | Jazz
 quaternary:            null
+quinary:               null
 
 ---
 
@@ -289,6 +321,7 @@ category:    "Education"
 subcategory: Career | Finance | Self-Help | Productivity | Tech | Science | History | Language | Parenting | Psychology
 tertiary:    null
 quaternary:  null
+quinary:     null
 
 ---
 
@@ -298,18 +331,21 @@ Use only when absolutely no other taxonomy category fits.
 subcategory must be specific and descriptive — never vague.
 tertiary required if subcategory alone is insufficient.
 quaternary: null
+quinary:    null
 
 ---
 
 ## EDGE CASES
 
-- Ambiguous food photo with no caption — use alt text visual cues; set confidence "medium" or "low"
-- Multi-topic posts (e.g. travel + food) — pick the dominant theme; secondary topic goes in tags only
-- Reels or video posts with minimal alt text — infer from handle and caption; confidence "low" if truly unclear
+- Ambiguous food photo with no caption — use alt text visual cues; confidence "medium" or "low"
+- Recipe vs place ambiguous — any indication of a real venue (address, reservation, "go here") → city-based Food; instructional or ingredient-focused → Recipes
+- Multi-topic posts (e.g. travel + food) — pick the dominant theme; secondary topic in tags only
+- Reels or video posts with minimal alt text — infer from handle and caption; confidence "low" if unclear
 - Sponsored or ad posts — categorize by product type, not the fact that it is an ad
 - Memes or text-only posts — Entertainment > Comedy or Education depending on content
-- Alt text is only "Photo by @username" with zero description — infer from handle, confidence "low", note uncertainty in tags
-- Date Night signal present — always use tertiary "Date Night" over "Restaurants", "Bars", or "Cafes" when romantic framing is explicit in caption or visual context`;
+- Alt text is only "Photo by @username" — infer from handle, confidence "low", note uncertainty in tags
+- Date Night signal present — always use tertiary "Date Night" over Restaurants, Bars, or Cafes when romantic framing is explicit
+- Restaurant post from a trip abroad — Food category with the foreign city as subcategory, NOT Travel`;
 
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -404,6 +440,8 @@ quaternary: null
   }
 
   // ── Normalize a raw categorization object ─────────────────────────────────
+  // Accepts either a string (from single-post response) or an already-parsed object
+  // (from batch response array). Both paths go through the same validation.
   function parseResult(input) {
     let obj;
     if (typeof input === 'string') {
@@ -505,6 +543,7 @@ quaternary: null
     if (!Array.isArray(arr) || arr.length !== posts.length) {
       throw new Error(`Expected ${posts.length} results, got ${Array.isArray(arr) ? arr.length : 'non-array'}`);
     }
+    // arr elements are already-parsed objects — parseResult handles both strings and objects
     return arr.map(parseResult);
   }
 
@@ -536,7 +575,7 @@ quaternary: null
         } else {
           errorLog.push(err.message);
         }
-        return null;
+        return null; // non-fatal failure — caller marks post as error
       }
     }
 
@@ -547,7 +586,7 @@ quaternary: null
         ? batchPosts.map((p) => ({ ...p, thumbnail_src: null }))
         : batchPosts;
 
-      // ── Pass 1: batch call ────────────────────────────────────────────────
+      // ── Pass 1: batch call (1 API call for up to 10 posts) ────────────────
       let batchCats = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -555,6 +594,7 @@ quaternary: null
           break;
         } catch (err) {
           if (err.fatal) throw err;
+          // CDN image errors → retry text-only once
           if ([400, 403, 422].includes(err.status) && !skipImages) {
             try {
               batchCats = await callCompletionsBatch(batchPosts.map((p) => ({ ...p, thumbnail_src: null })), { model, userApiKey });
@@ -582,7 +622,7 @@ quaternary: null
         batchCats = await Promise.all(postsForApi.map((post) => categorizeSingle(post)));
       }
 
-      // ── Pass 2: web search + re-categorize uncertain posts ────────────────
+      // ── Pass 2: web search + re-categorize uncertain posts (optional) ──────
       const finalCats = await Promise.all(
         batchCats.map(async (cat, i) => {
           if (!cat) return null;
@@ -616,6 +656,7 @@ quaternary: null
         try {
           finalCats = await processBatch(batchStart);
         } catch (err) {
+          // Only fatal errors (401, quota) reach here
           cancelled = true;
           throw err;
         }
