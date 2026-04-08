@@ -200,7 +200,28 @@ function setupEventListeners() {
   dom.clearDataBtn.addEventListener('click', () => {
     if (confirm('Clear all saved data and start over?')) {
       Storage.clearPosts();
-      location.reload();
+      // Signal content script to clear chrome.storage (no reload needed)
+      window.dispatchEvent(new CustomEvent('ig:wants-clear'));
+      // Reset in-memory state
+      state.rawData = null;
+      state.posts = null;
+      state.tree = null;
+      state.selectedPosts = null;
+      state.selectedPath = '';
+      state.searchQuery = '';
+      // Stop any running categorization
+      if (categorizationController) {
+        categorizationController.paused = true;
+        categorizationController = null;
+      }
+      // Return to initial upload screen
+      dom.settingsModal.classList.add('hidden');
+      dom.mainLayout.classList.add('hidden');
+      dom.categorizeBar.classList.add('hidden');
+      dom.recategorizeBtn?.classList.add('hidden');
+      dom.ageWarning.classList.add('hidden');
+      dom.categorizeProgress.classList.add('hidden');
+      dom.uploadSection.classList.remove('hidden');
     }
   });
 

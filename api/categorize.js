@@ -20,17 +20,25 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
+  // Route to OpenAI directly when the key is an OpenAI key (sk- but not sk-or-).
+  // OpenRouter only accepts its own keys (sk-or-v1-...) and will 402 on OpenAI keys.
+  const isOpenAIKey = apiKey.startsWith('sk-') && !apiKey.startsWith('sk-or-');
+  const upstreamUrl = isOpenAIKey
+    ? 'https://api.openai.com/v1/chat/completions'
+    : 'https://openrouter.ai/api/v1/chat/completions';
+  const upstreamModel = isOpenAIKey
+    ? (model ? model.replace('openai/', '') : 'gpt-4o-mini')
+    : (model || 'openai/gpt-4o-mini');
+  const upstreamHeaders = isOpenAIKey
+    ? { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+    : { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://saved-posts-organizer.vercel.app', 'X-Title': 'Instagram Saved Posts Organizer' };
+
   try {
-    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const upstream = await fetch(upstreamUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://saved-posts-organizer.vercel.app',
-        'X-Title': 'Instagram Saved Posts Organizer',
-      },
+      headers: upstreamHeaders,
       body: JSON.stringify({
-        model: model || 'openai/gpt-4o-mini',
+        model: upstreamModel,
         max_tokens: max_tokens || 250,
         messages,
       }),

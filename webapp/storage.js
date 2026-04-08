@@ -25,6 +25,8 @@ window.IG.Storage = (() => {
 
   function clearPosts() {
     localStorage.removeItem(POSTS_KEY);
+    localStorage.removeItem('ig_pending_posts_bridge');
+    localStorage.setItem('ig_wants_clear', '1');
   }
 
   function saveWebSearch(enabled) {

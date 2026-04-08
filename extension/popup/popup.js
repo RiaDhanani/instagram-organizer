@@ -1,16 +1,19 @@
 // Popup controller
 
 const state = {
-  phase: 'init', // init | wrong-page | ready | scraping | complete | error
+  phase: 'init', // init | wrong-page | ready | ready-with-previous | scraping | complete | error
   postCount: 0,
-  posts: null,
+  posts: null,     // new posts only (for Download JSON)
+  allPosts: null,  // all posts ever exported (for Open Organizer)
   sourceUrl: '',
   errorMessage: '',
+  incremental: false,
 };
 
 const ui = {
   status: document.getElementById('status'),
   exportBtn: document.getElementById('export-btn'),
+  readyPrevActions: document.getElementById('ready-prev-actions'),
   progress: document.getElementById('progress'),
   progressText: document.getElementById('progress-text'),
   result: document.getElementById('result'),
@@ -20,9 +23,12 @@ const ui = {
 
 function render() {
   ui.exportBtn.style.display = 'none';
+  ui.readyPrevActions.style.display = 'none';
   ui.progress.style.display = 'none';
   ui.result.style.display = 'none';
+  ui.status.style.display = '';
   ui.status.className = 'status';
+  document.getElementById('export-prev-btn').disabled = false;
 
   if (state.phase === 'init') {
     ui.status.textContent = 'Checking page…';
@@ -31,15 +37,29 @@ function render() {
   } else if (state.phase === 'ready') {
     ui.status.textContent = 'Ready to export your saved posts.';
     ui.exportBtn.style.display = 'block';
+  } else if (state.phase === 'ready-with-previous') {
+    ui.status.textContent = '';
+    ui.status.style.display = 'none';
+    ui.readyPrevActions.style.display = 'flex';
   } else if (state.phase === 'scraping') {
     ui.status.textContent = 'Scraping in progress…';
     ui.progress.style.display = 'block';
     ui.progressText.textContent = state.postCount > 0 ? `${state.postCount} posts collected…` : 'Starting…';
   } else if (state.phase === 'complete') {
-    ui.status.textContent = '';
-    ui.result.style.display = 'block';
-    ui.resultMsg.textContent = `Exported ${state.postCount} post${state.postCount !== 1 ? 's' : ''}`;
-    ui.resultStatus.textContent = '';
+    if (state.incremental && state.postCount === 0) {
+      // No new posts — disabled Export + Open Organizer
+      ui.status.textContent = 'No new posts since last export.';
+      ui.readyPrevActions.style.display = 'flex';
+      document.getElementById('export-prev-btn').disabled = true;
+    } else {
+      // New posts or first export — Download JSON + Open Organizer
+      ui.status.textContent = '';
+      ui.result.style.display = 'block';
+      ui.resultMsg.textContent = state.incremental
+        ? `Found ${state.postCount} new post${state.postCount !== 1 ? 's' : ''}`
+        : `Exported ${state.postCount} post${state.postCount !== 1 ? 's' : ''}`;
+      ui.resultStatus.textContent = '';
+    }
   } else if (state.phase === 'error') {
     ui.status.className = 'status error';
     ui.status.textContent = state.errorMessage || 'Something went wrong.';
@@ -88,10 +108,11 @@ function triggerDownload() {
 }
 
 function triggerOpenWebapp() {
-  if (!state.posts) return;
+  const posts = state.allPosts || state.posts;
+  if (!posts) return;
   ui.resultStatus.textContent = 'Opening…';
   chrome.runtime.sendMessage(
-    { action: 'OPEN_WEBAPP', posts: state.posts, sourceUrl: state.sourceUrl },
+    { action: 'OPEN_WEBAPP', posts, sourceUrl: state.sourceUrl },
     (response) => {
       if (!response || !response.success) {
         ui.resultStatus.textContent = 'Failed to open tab.';
@@ -115,14 +136,18 @@ document.getElementById('export-btn').addEventListener('click', () => {
 
 document.getElementById('download-btn').addEventListener('click', triggerDownload);
 document.getElementById('open-organizer-btn').addEventListener('click', triggerOpenWebapp);
+document.getElementById('export-prev-btn').addEventListener('click', startScrape);
+document.getElementById('open-organizer-prev-btn').addEventListener('click', triggerOpenWebapp);
 document.getElementById('popup-close-btn').addEventListener('click', () => window.close());
 
 const STALE_MS = 3 * 60 * 1000;
 
-function loadCompleteFromStorage(postCount, posts, sourceUrl) {
+function loadCompleteFromStorage(postCount, posts, allPosts, sourceUrl, incremental) {
   state.postCount = postCount;
   state.posts = posts;
+  state.allPosts = allPosts || posts;
   state.sourceUrl = sourceUrl || '';
+  state.incremental = !!incremental;
   state.phase = 'complete';
   render();
 }
@@ -147,7 +172,7 @@ async function init() {
     await chrome.storage.local.remove('ig_scrape_done');
     const pending = stored.ig_pending_posts;
     if (pending) {
-      loadCompleteFromStorage(pending.posts.length, pending.posts, pending.source_url);
+      loadCompleteFromStorage(pending.posts.length, pending.posts, pending.all_posts, pending.source_url, pending.incremental);
       return;
     }
   }
@@ -161,18 +186,39 @@ async function init() {
     return;
   }
 
-  // ── 3. Normal URL check ──────────────────────────────────────────────────────
+  // ── 3. URL check — valid collection page always shows Export ─────────────────
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab.url || '';
 
+  if (/instagram\.com\/[^/]+\/saved\/[^/]+/.test(url)) {
+    if (stored.ig_pending_posts) {
+      const pending = stored.ig_pending_posts;
+      state.posts = pending.posts;
+      state.allPosts = pending.all_posts || pending.posts;
+      state.postCount = (pending.all_posts || pending.posts).length;
+      state.sourceUrl = pending.source_url;
+      state.phase = 'ready-with-previous';
+    } else {
+      state.phase = 'ready';
+    }
+    render();
+    return;
+  }
+
+  // ── 4. Not on a collection page — show previous results if any ───────────────
+  if (stored.ig_pending_posts) {
+    const pending = stored.ig_pending_posts;
+    loadCompleteFromStorage(pending.posts.length, pending.posts, pending.all_posts, pending.source_url, pending.incremental);
+    return;
+  }
+
+  // ── 5. Wrong page, no results ─────────────────────────────────────────────────
   if (!url.includes('instagram.com') || !url.includes('/saved')) {
     state.phase = 'wrong-page';
     state.errorMessage = 'Navigate to instagram.com/[username]/saved first.';
-  } else if (!/instagram\.com\/[^/]+\/saved\/[^/]+/.test(url)) {
+  } else {
     state.phase = 'wrong-page';
     state.errorMessage = "You're on the collections page. Click into a collection first, then export.";
-  } else {
-    state.phase = 'ready';
   }
   render();
 }
@@ -194,7 +240,7 @@ function pollForCompletion() {
       clearInterval(pollTimer);
       await chrome.storage.local.remove('ig_scrape_done');
       const pending = stored.ig_pending_posts;
-      if (pending) loadCompleteFromStorage(pending.posts.length, pending.posts, pending.source_url);
+      if (pending) loadCompleteFromStorage(pending.posts.length, pending.posts, pending.all_posts, pending.source_url, pending.incremental);
     } else if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
       state.postCount = stored.igScrapeProgress.count;
       render();

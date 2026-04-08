@@ -74,18 +74,26 @@ async function inPageCollect(knownUrls) {
     });
   }
 
-  // Snapshot link count before scrolling, then scroll to absolute bottom.
+  // Scroll to absolute bottom and trigger lazy-loading.
   const POST_SEL = 'a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]';
   const countBefore = document.querySelectorAll(POST_SEL).length;
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
   window.dispatchEvent(new Event('scroll', { bubbles: true }));
 
+  // If the content script patched IntersectionObserver, re-observe all targets
+  // now. The initial observe() callback fires from layout geometry (not the
+  // render pipeline) so it works even when this tab is in the background.
+  if (typeof window.__igForceLoad === 'function') window.__igForceLoad();
+
   // Wait (up to 5 s) for Instagram to render new posts into the DOM.
-  // Resolves early as soon as new links appear — no unnecessary waiting.
+  // Re-fires __igForceLoad each second in case new observers were registered.
   await new Promise(resolve => {
     let elapsed = 0;
     const id = setInterval(() => {
       elapsed += 300;
+      if (elapsed % 1000 === 0 && typeof window.__igForceLoad === 'function') {
+        window.__igForceLoad();
+      }
       if (document.querySelectorAll(POST_SEL).length > countBefore || elapsed >= 5000) {
         clearInterval(id);
         resolve();
@@ -139,7 +147,7 @@ async function doScrapeChunk() {
 
   // inPageCollect already waits up to 5 s for new content internally,
   // so retries truly mean "nothing loaded after waiting" = end of feed.
-  if (scraping.retries >= 3) { await finalizeScrape(); return; }
+  if (scraping.retries >= 2) { await finalizeScrape(); return; }
 
   scraping.chunkTimer = setTimeout(doScrapeChunk, 500);
 }
@@ -165,15 +173,27 @@ async function finalizeScrape() {
     return;
   }
 
+  // Diff against previously exported posts
+  const { ig_pending_posts: prevExport } = await chrome.storage.local.get('ig_pending_posts');
+  const knownUrls = new Set(prevExport?.all_post_urls || []);
+  const isIncremental = knownUrls.size > 0;
+
+  const newPosts = isIncremental ? posts.filter(p => !knownUrls.has(p.post_url)) : posts;
+  const allPosts = [...(prevExport?.all_posts || []), ...newPosts];
+  const allPostUrls = allPosts.map(p => p.post_url);
+
   const payload = {
     exported_at: new Date().toISOString(),
     source_url: scraping.sourceUrl,
-    total_count: posts.length,
-    posts,
+    total_count: newPosts.length,
+    posts: newPosts,
+    all_posts: allPosts,
+    all_post_urls: allPostUrls,
+    incremental: isIncremental,
   };
   await chrome.storage.local.set({
     ig_pending_posts: payload,
-    ig_scrape_done: { postCount: posts.length, timestamp: Date.now() },
+    ig_scrape_done: { postCount: newPosts.length, timestamp: Date.now() },
   });
   await chrome.storage.local.remove('igScrapeProgress');
 }
@@ -234,29 +254,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // ── Open Webapp ───────────────────────────────────────────────────────────────
   if (message.action === 'OPEN_WEBAPP') {
-    const payload = {
-      exported_at: new Date().toISOString(),
-      source_url: message.sourceUrl,
-      total_count: message.posts.length,
-      posts: message.posts,
-    };
-    chrome.storage.local.set({ ig_pending_posts: payload }, () => {
-      if (chrome.runtime.lastError) { sendResponse({ success: false, error: chrome.runtime.lastError.message }); return; }
-      const vercelUrl = 'https://saved-posts-organizer.vercel.app';
-      chrome.windows.getCurrent((win) => {
-        if (win.incognito) {
-          chrome.windows.create({ url: vercelUrl, incognito: true }, (newWin) => {
-            if (chrome.runtime.lastError) {
-              chrome.tabs.create({ url: vercelUrl });
-              sendResponse({ success: true, incognito: false, needsPermission: true });
-            } else {
-              sendResponse({ success: true, incognito: true });
-            }
-          });
-        } else {
-          chrome.tabs.create({ url: vercelUrl });
-          sendResponse({ success: true, incognito: false });
-        }
+    chrome.storage.local.get('ig_pending_posts', (existing) => {
+      const prev = existing.ig_pending_posts || {};
+      const payload = {
+        exported_at: new Date().toISOString(),
+        source_url: message.sourceUrl,
+        total_count: message.posts.length,
+        posts: message.posts,
+        all_posts: prev.all_posts,
+        all_post_urls: prev.all_post_urls,
+        incremental: prev.incremental,
+      };
+      chrome.storage.local.set({ ig_pending_posts: payload }, () => {
+        if (chrome.runtime.lastError) { sendResponse({ success: false, error: chrome.runtime.lastError.message }); return; }
+        const vercelUrl = 'https://saved-posts-organizer.vercel.app';
+        chrome.windows.getCurrent((win) => {
+          if (win.incognito) {
+            chrome.windows.create({ url: vercelUrl, incognito: true }, (newWin) => {
+              if (chrome.runtime.lastError) {
+                chrome.tabs.create({ url: vercelUrl });
+                sendResponse({ success: true, incognito: false, needsPermission: true });
+              } else {
+                sendResponse({ success: true, incognito: true });
+              }
+            });
+          } else {
+            chrome.tabs.create({ url: vercelUrl });
+            sendResponse({ success: true, incognito: false });
+          }
+        });
       });
     });
     return true;
