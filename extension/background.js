@@ -16,7 +16,7 @@ const scraping = {
 async function inPageCollect(knownUrls) {
   const knownSet = new Set(knownUrls);
 
-  // Force Instagram to treat this tab as visible so lazy-loading keeps running.
+  // Spoof visibility so Instagram doesn't pause its loading logic.
   try {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
@@ -25,21 +25,34 @@ async function inPageCollect(knownUrls) {
     document.dispatchEvent(new Event('focus'));
   } catch {}
 
-  // Three-tier anchor finding
+  // ── Collect posts ──────────────────────────────────────────────────────────
+  // Primary source: fetch-intercepted API data from content-ig.js.
+  // This works regardless of DOM rendering (background tab friendly).
+  const newPosts = [];
+  const seenThisChunk = new Set();
+
+  if (typeof window.__igDrainPosts === 'function') {
+    for (const post of window.__igDrainPosts()) {
+      if (!knownSet.has(post.post_url) && !seenThisChunk.has(post.post_url)) {
+        seenThisChunk.add(post.post_url);
+        newPosts.push(post);
+      }
+    }
+  }
+
+  // Fallback: DOM anchors (catches first-chunk posts before any API fires,
+  // and any posts the fetch interceptor might miss).
   const HREF_SELECTORS = [
     'article a[href*="/p/"], article a[href*="/reel/"]',
     '[role="main"] a[href*="/p/"], [role="main"] a[href*="/reel/"]',
     'a[href*="/p/"], a[href*="/reel/"]',
     'a[href*="/tv/"]',
   ];
-
   let anchors = [];
   for (const sel of HREF_SELECTORS) {
     const els = document.querySelectorAll(sel);
     if (els.length > 0) { anchors = Array.from(els); break; }
   }
-
-  // Walkup fallback
   if (!anchors.length) {
     const seen = new Set();
     const imgs = document.querySelectorAll('img[src*="cdninstagram.com"], img[src*="instagram.f"]');
@@ -56,16 +69,14 @@ async function inPageCollect(knownUrls) {
       }
     }
   }
-
-  const newPosts = [];
   for (const anchor of anchors) {
     const rawHref = anchor.getAttribute('href') || '';
     if (!rawHref) continue;
     const postUrl = rawHref.startsWith('http') ? rawHref : 'https://www.instagram.com' + rawHref;
-    if (knownSet.has(postUrl)) continue;
+    if (knownSet.has(postUrl) || seenThisChunk.has(postUrl)) continue;
     const img = anchor.querySelector('img');
-    const href = anchor.href || rawHref;
-    const postType = /\/(reel|tv)\//.test(href) ? 'reel' : 'photo';
+    const postType = /\/(reel|tv)\//.test(anchor.href || rawHref) ? 'reel' : 'photo';
+    seenThisChunk.add(postUrl);
     newPosts.push({
       post_url: postUrl,
       thumbnail_src: img ? img.src : null,
@@ -74,30 +85,51 @@ async function inPageCollect(knownUrls) {
     });
   }
 
-  // Scroll to absolute bottom and trigger lazy-loading.
+  // ── Scroll + trigger next load ─────────────────────────────────────────────
   const POST_SEL = 'a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]';
-  const countBefore = document.querySelectorAll(POST_SEL).length;
+  const urlsBefore = new Set(
+    Array.from(document.querySelectorAll(POST_SEL)).map(a => {
+      const h = a.getAttribute('href') || '';
+      return h.startsWith('http') ? h : 'https://www.instagram.com' + h;
+    })
+  );
+
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
   window.dispatchEvent(new Event('scroll', { bubbles: true }));
-
-  // If the content script patched IntersectionObserver, re-observe all targets
-  // now. The initial observe() callback fires from layout geometry (not the
-  // render pipeline) so it works even when this tab is in the background.
   if (typeof window.__igForceLoad === 'function') window.__igForceLoad();
 
-  // Wait (up to 5 s) for Instagram to render new posts into the DOM.
-  // Re-fires __igForceLoad each second in case new observers were registered.
+  // ── Wait for next batch ────────────────────────────────────────────────────
+  // Resolves as soon as ANY of:
+  //   • ig:posts-loaded fires (fetch interceptor got an API response)
+  //   • a new post URL appears in the DOM (visible-tab fallback)
+  //   • 8 s timeout
+  // Re-fires __igForceLoad every 900 ms (evenly divisible by 300 ms tick)
+  // in case a new sentinel observer was registered after the previous batch.
   await new Promise(resolve => {
     let elapsed = 0;
-    const id = setInterval(() => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearInterval(ticker);
+      window.removeEventListener('ig:posts-loaded', onApiLoad);
+      resolve();
+    };
+    const onApiLoad = () => finish();
+    window.addEventListener('ig:posts-loaded', onApiLoad);
+
+    const ticker = setInterval(() => {
       elapsed += 300;
-      if (elapsed % 1000 === 0 && typeof window.__igForceLoad === 'function') {
+      if (elapsed % 900 === 0 && typeof window.__igForceLoad === 'function') {
         window.__igForceLoad();
       }
-      if (document.querySelectorAll(POST_SEL).length > countBefore || elapsed >= 5000) {
-        clearInterval(id);
-        resolve();
-      }
+      // DOM fallback detection
+      const hasNewDom = Array.from(document.querySelectorAll(POST_SEL)).some(a => {
+        const h = a.getAttribute('href') || '';
+        const url = h.startsWith('http') ? h : 'https://www.instagram.com' + h;
+        return !urlsBefore.has(url);
+      });
+      if (hasNewDom || elapsed >= 8000) finish();
     }, 300);
   });
 
