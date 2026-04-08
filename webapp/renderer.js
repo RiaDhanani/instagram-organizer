@@ -558,7 +558,30 @@ window.IG.Renderer = (() => {
       const normTer = normalizeLabel(rawTer);
       const normQuat = normalizeLabel(rawQuat);
 
-      const { cat, sub, ter, quat } = reclassify(normCat, normSub, normTer, normQuat);
+      const { cat, sub, ter: _ter, quat: _quat } = reclassify(normCat, normSub, normTer, normQuat);
+      // Folder-file rule: never create a child node with the same name as its parent
+      let ter = (_ter === sub) ? null : _ter;
+      let quat = (_quat === ter || _quat === sub) ? null : _quat;
+
+      // Fix existing data: reclassify Recipes posts using priority rules
+      if (cat === 'Food' && sub === 'Recipes') {
+        const cuisineVal = quat || ter; // cuisine lives in quat after promotion, or ter for old data
+        const signal = [...(post.categorization?.tags || []), post.alt_text || ''].join(' ').toLowerCase();
+
+        // Cafe & Brunch → remap to actual cuisine
+        if (cuisineVal === 'Cafe & Brunch') {
+          let remapped = 'American'; // default: eggs, omelette, hash browns, avocado toast
+          if (/pizza/.test(signal))                                              remapped = 'Italian';
+          else if (/pancake|waffle|crepe|bak[ei]|muffin|cake|cookie|sweet/.test(signal)) remapped = 'Baking';
+          else if (/smoothie|acai|grain.?bowl|salad/.test(signal))              remapped = 'Healthy';
+          ter = null; quat = remapped;
+        }
+        // Healthy + sweet/baking signal → Baking
+        else if (cuisineVal === 'Healthy' &&
+                 /muffin|pancake|waffle|bak[ei]|cake|cookie|brownie|dough|batter|sweet|dessert/.test(signal)) {
+          ter = null; quat = 'Baking';
+        }
+      }
 
       if (!tree[cat]) tree[cat] = { __posts: [], __count: 0 };
       tree[cat].__count++;

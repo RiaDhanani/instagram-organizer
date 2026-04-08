@@ -143,6 +143,22 @@
   <div class="modal-box">
     <h2 class="modal-title">Settings</h2>
 
+    <!-- API key -->
+    <div class="form-group">
+      <label class="form-label">OpenRouter API Key</label>
+      <div id="api-key-input-row" class="api-key-row">
+        <input type="password" class="form-input" id="settings-api-key"
+               placeholder="sk-or-v1-..." autocomplete="off" spellcheck="false">
+        <button class="btn-ghost" id="settings-api-key-save">Save</button>
+      </div>
+      <div id="api-key-saved-row" class="api-key-saved-row hidden">
+        <span id="api-key-indicator" class="key-indicator"></span>
+        <button class="btn-ghost btn-sm" id="settings-api-key-remove">Remove</button>
+      </div>
+      <p class="form-hint">Stored locally in your browser. When set, your key is used instead of the server's shared credits. To use your own OpenAI or Anthropic key, add it as BYOK in <a href="https://openrouter.ai/settings/integrations" target="_blank" rel="noopener">OpenRouter settings</a>.</p>
+    </div>
+
+    <!-- Web search toggle -->
     <div class="form-group">
       <div class="toggle-row">
         <label class="toggle-label" for="web-search-toggle">
@@ -212,7 +228,7 @@
       <span class="credits-popup-icon">⚠</span>
       <h3 class="credits-popup-title">Out of credits</h3>
     </div>
-    <p class="credits-popup-desc">Please add your own OpenRouter API key and add credits to any LLM available in OpenRouter. Key is stored locally in your browser. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">Get your API key →</a></p>
+    <p class="credits-popup-desc">Add your OpenRouter API key to continue. OpenRouter supports all major models — or bring your own OpenAI / Anthropic key via <a href="https://openrouter.ai/settings/integrations" target="_blank" rel="noopener">BYOK</a>. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">Get your API key →</a></p>
     <input type="password" id="credits-key-input" class="credits-key-input" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
     <p class="credits-popup-status hidden" id="credits-popup-status"></p>
     <div class="credits-popup-actions">

@@ -95,13 +95,13 @@ For any home cooking, how-to, ingredient-focused, or meal prep content.
 
 category:    "Food"
 subcategory: "Recipes"
-tertiary:    EXACTLY one of the 11 allowed cuisine strings below — no other value is valid
+tertiary:    EXACTLY one of the 14 allowed cuisine strings below — no other value is valid
 quaternary:  null
 quinary:     null
 
 Allowed tertiary values — copy letter-for-letter:
 
-"Italian"       — pasta, pizza, risotto, gnocchi, focaccia
+"Italian"       — pasta, pizza, risotto, gnocchi, focaccia, lasagna
 "Mexican"       — tacos, burritos, enchiladas, guacamole, quesadillas
 "Indian"        — curry, biryani, dal, tikka, naan, masala
 "Japanese"      — sushi, ramen, udon, tempura, miso, onigiri
@@ -110,40 +110,46 @@ Allowed tertiary values — copy letter-for-letter:
 "Thai"          — pad thai, green curry, som tum, mango sticky rice
 "Vietnamese"    — pho, banh mi, spring rolls, bun bo hue
 "Mediterranean" — Greek, Lebanese, Turkish, Moroccan, Middle Eastern, North African
-"American"      — burgers, BBQ, mac and cheese, fried chicken, sandwiches, comfort food
-"Healthy"       — salads, grain bowls, smoothies, acai bowls, savory wraps (NOT baked goods)
-"Baking"        — ALL baked goods and ALL desserts including healthy versions: bread, muffins,
-                  banana bread, cakes, cookies, brownies, pies, cheesecake, ice cream, energy
-                  balls, protein bars, protein cookies, date balls, granola bars
+"American"      — burgers, BBQ, mac and cheese, fried chicken, sandwiches, comfort food,
+                  eggs (any style), omelette, frittata, scrambled eggs, hash browns,
+                  avocado toast, eggs benedict — ALL egg dishes go here regardless of framing
+"Healthy"       — savory, non-baked, non-sweet recipes: salads, grain bowls, smoothies,
+                  acai bowls, savory wraps — ONLY use when tagged healthy AND the dish is
+                  savory; if it is sweet, use "Baking" instead
+"Baking"        — every baked, sweet, or dessert-style recipe regardless of health claims:
+                  bread, muffins, banana bread, cakes, cookies, brownies, pies, cheesecake,
+                  pancakes, waffles, crepes, ice cream, energy balls, protein bars,
+                  protein cookies, date balls, granola bars, bliss balls, no-bake treats,
+                  raw desserts, healthy cookies, vegan brownies, healthy muffins
 "Drinks"        — cocktails, mocktails, juices, coffee, tea, any beverage recipe
-"Breakfast"     — pancakes, waffles, eggs, oatmeal, granola, morning meals
-"Cafe & Brunch" — cafe-style recipes, brunch spreads, mimosas, avocado toast, eggs benedict
+"Breakfast"     — oatmeal, granola bowls, overnight oats (savory, non-egg morning meals)
 
-Baking vs Healthy — mutually exclusive:
-If the post contains ANY of: baked, oven, flour, butter, sugar, dough, batter, chocolate,
-protein bar, energy ball, granola bar → tertiary is ALWAYS "Baking" regardless of any
-health claims in the caption.
+⚠ PRIORITY RULES — apply in this order, first match wins:
 
-Diet labels never appear in tertiary — tags only:
-- Vegan tacos → "Mexican"
-- Vegan curry → "Indian"
-- Healthy muffin → "Baking"
-- Keto pasta → "Italian"
-- Vegan with no cuisine signal → "Healthy" (only if not baked)
+1. PIZZA → always "Italian" — healthy pizza, breakfast pizza, cauliflower pizza: all "Italian"
+2. EGGS / OMELETTE / HASH BROWNS → always "American" — no exceptions
+3. BAKING → any baked, sweet, or dessert item → always "Baking", even if labelled healthy/vegan:
+   muffin / pancake / waffle / crepe / cake / cookie / brownie / bar / ball / bread /
+   dough / batter / dessert / sweet / treat / no-bake / raw dessert / chocolate
+4. HEALTHY (savory only) → post is tagged healthy AND the dish is savory and not baked → "Healthy"
+5. Everything else → pick the matching cuisine from the list above
+
+"Cafe & Brunch" is NOT an allowed value — never use it for Recipes.
+
+Diet labels never change the cuisine — tags only:
+- Healthy muffin → "Baking"       Vegan brownies → "Baking"     Healthy cookies → "Baking"
+- Vegan tacos → "Mexican"         Vegan curry → "Indian"         Keto pasta → "Italian"
+- Healthy omelette → "American"   Breakfast pizza → "Italian"    Healthy pizza → "Italian"
 
 Correction table — apply before outputting:
-"Desserts"              → "Baking"
-"Sweets"                → "Baking"
+"Desserts" / "Sweets"   → "Baking"
 "Snacks" (sweet/baked)  → "Baking"
 "Snacks" (savory)       → "Healthy"
+"Cafe & Brunch" / "Brunch" / "Cafe" → use the actual cuisine per priority rules above
 "Asian"                 → pick specific (Japanese/Korean/Chinese/Thai/Vietnamese)
-                          use "Asian" ONLY if genuinely mixed across multiple cuisines
 "Asian Fusion"          → "Japanese" or closest specific cuisine
-"[Cuisine] Vegetarian"  → "[That cuisine]"
-"Vegan [Cuisine]"       → "[That cuisine]"
-"Brunch"                → "Cafe & Brunch"
-"Cafe"                  → "Cafe & Brunch"
-Anything else           → pick the closest match from the 15 allowed strings
+"[Cuisine] Vegetarian" / "Vegan [Cuisine]" → "[That cuisine]"
+Anything else           → pick the closest match from the 14 allowed strings
 
 ---
 
