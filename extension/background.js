@@ -121,13 +121,15 @@ async function doScrapeChunk() {
   try { tab = await chrome.tabs.get(scraping.tabId); } catch { await finalizeScrape(); return; }
   if (!tab.url || !tab.url.includes('instagram.com')) { await finalizeScrape(); return; }
 
-  // Collect + scroll
+  // Collect + scroll (MAIN world so inPageCollect can reach window.__igForceLoad
+  // and its visibility spoofing affects Instagram's own JS context)
   let result;
   try {
     const [{ result: r }] = await chrome.scripting.executeScript({
       target: { tabId: scraping.tabId },
       func: inPageCollect,
       args: [Array.from(scraping.seen)],
+      world: 'MAIN',
     });
     result = r;
   } catch { await finalizeScrape(); return; }
@@ -147,7 +149,7 @@ async function doScrapeChunk() {
 
   // inPageCollect already waits up to 5 s for new content internally,
   // so retries truly mean "nothing loaded after waiting" = end of feed.
-  if (scraping.retries >= 2) { await finalizeScrape(); return; }
+  if (scraping.retries >= 3) { await finalizeScrape(); return; }
 
   scraping.chunkTimer = setTimeout(doScrapeChunk, 500);
 }
@@ -162,6 +164,7 @@ async function finalizeScrape() {
     await chrome.scripting.executeScript({
       target: { tabId: scraping.tabId },
       func: () => window.scrollTo({ top: 0, behavior: 'instant' }),
+      world: 'MAIN',
     });
   } catch {}
 
@@ -217,6 +220,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       target: { tabId: message.tabId },
       func: inPageCollect,
       args: [[]],
+      world: 'MAIN',
     }).then(async ([{ result }]) => {
       if (result.newPosts.length === 0) {
         // Diagnose why
@@ -225,6 +229,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const [{ result: diag }] = await chrome.scripting.executeScript({
             target: { tabId: message.tabId },
             func: inPageDiagnose,
+            world: 'MAIN',
           });
           if (diag.isCollectionsPage) {
             msg = "You're on the saved collections overview. Click into a collection first, then export.";

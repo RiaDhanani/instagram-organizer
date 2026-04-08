@@ -1,16 +1,14 @@
 // content-ig.js — injected at document_start in the MAIN world on instagram.com
 //
 // Wraps IntersectionObserver so background.js can trigger lazy-loading while
-// the Instagram tab is in the background (Chrome pauses IntersectionObserver
-// in background tabs because it's tied to the render pipeline).
+// the Instagram tab is in the background without activating the tab.
 //
 // How it works:
-//   - Every IntersectionObserver instance Instagram creates goes through our
-//     wrapper, which tracks the observer and its observed targets.
-//   - window.__igForceLoad() re-observes every tracked target. The initial
-//     observe() callback fires from layout geometry — not a render frame — so
-//     it runs even in background tabs, telling Instagram its sentinel elements
-//     are now in the viewport after we scrolled to the bottom.
+//   - Every IntersectionObserver Instagram creates goes through our wrapper,
+//     which tracks the callback and observed targets.
+//   - window.__igForceLoad() directly invokes each observer's callback with
+//     fake "fully intersecting" entries for all tracked targets. This bypasses
+//     the render pipeline entirely — no active tab or render frame needed.
 
 (function () {
   const _Native = window.IntersectionObserver;
@@ -20,6 +18,7 @@
 
   class _IO {
     constructor(callback, options) {
+      this._callback = callback;
       this._targets = new Set();
       this._native = new _Native((entries) => callback(entries, this), options);
       _registry.add(this);
@@ -45,12 +44,24 @@
 
   window.IntersectionObserver = _IO;
 
+  // Directly invoke each observer's callback with fake "fully visible" entries
+  // for all tracked targets. Works in background tabs — no render frame needed.
   window.__igForceLoad = function () {
+    const fakeRect = { x: 0, y: 0, width: 100, height: 100, top: 0, right: 100, bottom: 100, left: 0 };
+    const fakeRoot = { x: 0, y: 0, width: window.innerWidth || 1280, height: window.innerHeight || 900,
+                       top: 0, right: window.innerWidth || 1280, bottom: window.innerHeight || 900, left: 0 };
     for (const obs of _registry) {
-      for (const target of obs._targets) {
-        obs._native.unobserve(target);
-        obs._native.observe(target);
-      }
+      if (obs._targets.size === 0) continue;
+      const entries = [...obs._targets].map(target => ({
+        target,
+        isIntersecting: true,
+        intersectionRatio: 1,
+        boundingClientRect: fakeRect,
+        intersectionRect: fakeRect,
+        rootBounds: fakeRoot,
+        time: performance.now(),
+      }));
+      try { obs._callback(entries, obs); } catch {}
     }
   };
 })();

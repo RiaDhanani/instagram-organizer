@@ -27,34 +27,47 @@
     </div>
 
     <div id="content">
-      <p id="status" class="status"></p>
-
-      <button id="export-btn" class="btn-primary" style="display:none">
-        Export Saved Posts
-      </button>
-
-      <div id="ready-prev-actions" class="result-actions" style="display:none">
-        <button id="export-prev-btn" class="btn-action">Export</button>
-        <button id="open-organizer-prev-btn" class="btn-action btn-action-primary">Open Organizer</button>
-      </div>
-
+      <!-- Progress bar (scraping) -->
       <div id="progress" style="display:none">
         <div class="progress-bar">
           <div class="progress-fill"></div>
         </div>
-        <p id="progress-text" class="progress-text">Starting...</p>
+        <p id="progress-text" class="progress-text">Starting…</p>
       </div>
 
+      <!-- Status / result message -->
+      <p id="status" class="status"></p>
+
+      <!-- Success card (export completed with new posts) -->
       <div id="result" style="display:none">
         <button class="popup-x" id="popup-close-btn" title="Close">✕</button>
         <div class="result-icon">✓</div>
         <p class="result-msg" id="result-msg"></p>
-        <div class="result-actions">
-          <button id="download-btn" class="btn-action">Download JSON</button>
-          <button id="open-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
-        </div>
-        <p class="result-status" id="result-status"></p>
       </div>
+
+      <!-- Full-width primary export (first-time user + error with no prior data) -->
+      <button id="export-btn" class="btn-primary" style="display:none">
+        Export All Posts
+      </button>
+
+      <!-- Two-up row: export + open organizer (returning users on collection page) -->
+      <div id="action-row" class="result-actions" style="display:none">
+        <button id="action-export-btn" class="btn-action">Export</button>
+        <button id="action-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
+      </div>
+
+      <!-- Download + open organizer (after successful export) -->
+      <div id="result-actions" class="result-actions" style="display:none">
+        <button id="download-btn" class="btn-action">Download JSON</button>
+        <button id="result-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
+      </div>
+
+      <!-- Solo open organizer (wrong page / error with prior data / scraping) -->
+      <button id="solo-organizer-btn" class="btn-action btn-action-primary btn-full" style="display:none">
+        Open Organizer
+      </button>
+
+      <p id="result-status" class="result-status"></p>
     </div>
   </div>
 

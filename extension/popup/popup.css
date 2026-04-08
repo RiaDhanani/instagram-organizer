@@ -162,6 +162,20 @@ body {
 }
 .btn-action-primary:hover { opacity: 0.88; }
 
+.btn-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.btn-action:disabled:hover {
+  background: #1a1a1a;
+  color: #ccc;
+  border-color: #333;
+}
+
+.btn-full {
+  width: 100%;
+}
+
 .result-status {
   color: #666;
   font-size: 11px;
