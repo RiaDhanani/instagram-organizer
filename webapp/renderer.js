@@ -500,8 +500,8 @@ window.IG.Renderer = (() => {
       return { cat: 'Food', sub: 'Recipes', ter: null, quat: ter };
     }
 
-    // Merge Cafes / Cafe / Brunch place types into "Cafes & Brunch"
-    if (cat === 'Food' && (ter === 'Cafes' || ter === 'Cafe' || ter === 'Brunch')) {
+    // Merge Cafes / Cafe / Brunch place types into "Cafes & Brunch" — city posts only, not Recipes
+    if (cat === 'Food' && sub !== 'Recipes' && (ter === 'Cafes' || ter === 'Cafe' || ter === 'Brunch')) {
       return { cat, sub, ter: 'Cafes & Brunch', quat };
     }
     // Restaurants > Brunch (cuisine) → Cafes & Brunch place type
@@ -569,7 +569,7 @@ window.IG.Renderer = (() => {
         const signal = [...(post.categorization?.tags || []), post.alt_text || ''].join(' ').toLowerCase();
 
         // Cafe & Brunch → remap to actual cuisine
-        if (cuisineVal === 'Cafe & Brunch') {
+        if (cuisineVal === 'Cafe & Brunch' || cuisineVal === 'Cafes & Brunch') {
           let remapped = 'American'; // default: eggs, omelette, hash browns, avocado toast
           if (/pizza/.test(signal))                                              remapped = 'Italian';
           else if (/pancake|waffle|crepe|bak[ei]|muffin|cake|cookie|sweet/.test(signal)) remapped = 'Baking';
