@@ -95,7 +95,7 @@ For any home cooking, how-to, ingredient-focused, or meal prep content.
 
 category:    "Food"
 subcategory: "Recipes"
-tertiary:    EXACTLY one of the 14 allowed cuisine strings below — no other value is valid
+tertiary:    EXACTLY one of the 13 allowed cuisine strings below — no other value is valid
 quaternary:  null
 quinary:     null
 
@@ -125,23 +125,21 @@ Allowed tertiary values — copy letter-for-letter:
                   ice cream, energy balls, protein bars, protein cookies, date balls,
                   granola bars, bliss balls, no-bake treats, raw desserts
 "Drinks"        — cocktails, mocktails, juices, coffee, tea, any beverage recipe
-"Breakfast"     — savoury non-egg morning meals only (e.g. savoury overnight oats, congee)
-                  If sweet → "Baking". If eggs → "American".
 
 ⚠ PRIORITY RULES — apply in this exact order, first match wins:
 
 1. SWEET / BAKING signal → always "Baking", overrides everything including vegan/healthy/breakfast:
-   sweet / dessert / sugar / chocolate / syrup / honey / waffle / pancake / muffin /
-   cake / cookie / brownie / oatmeal (sweet) / granola / overnight oats / treat / no-bake
+   sweet / dessert / sugar / chocolate / syrup / honey / waffle / pancake / muffin / oatmeal /
+   cake / cookie / brownie / granola / overnight oats / treat / no-bake / dessert
 2. PIZZA → always "Italian" regardless of style or health framing
 3. EGGS / OMELETTE / HASH BROWNS → always "American" unless a non-American cuisine is explicit
 4. CUISINE SIGNAL → use the matching cuisine (Indian, Italian, Mexican, etc.)
    — Vegan/healthy labels do NOT change the cuisine: vegan curry → "Indian", vegan tacos → "Mexican"
    — Sandwiches take the cuisine of their filling: Indian sandwich → "Indian", club sandwich → "American"
 5. HEALTHY (savory only) → tagged healthy AND savory AND not baked → "Healthy"
-6. Everything else → pick closest match from the 14 allowed strings
+6. Everything else → pick closest match from the 13 allowed strings
 
-"Cafe & Brunch" is NOT an allowed value — never use it for Recipes.
+"Breakfast", "Brunch", and "Cafe & Brunch" are NOT allowed values — never use them for Recipes.
 
 Examples:
 - Vegan waffle → "Baking"          Sweet oatmeal → "Baking"        Vegan brownie → "Baking"
@@ -154,7 +152,7 @@ Correction table — apply before outputting:
 "Snacks" (sweet/baked)         → "Baking"
 "Snacks" (savory)              → "Healthy"
 "Vegan" / "Vegan Recipes"      → use the actual cuisine or "Healthy" if savory with no cuisine
-"Cafe & Brunch" / "Brunch" / "Cafe" → apply priority rules above
+"Breakfast" / "Brunch" / "Cafe & Brunch" / "Cafe" → apply priority rules above
 "Asian"                        → pick specific (Japanese/Korean/Chinese/Thai/Vietnamese)
 "Asian Fusion"                 → "Japanese" or closest specific cuisine
 "[Cuisine] Vegetarian" / "Vegan [Cuisine]" → "[That cuisine]"

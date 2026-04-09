@@ -458,7 +458,7 @@ window.IG.Renderer = (() => {
   // New structure: Food > Recipes > null > Italian (quaternary)
   const CUISINE_STRINGS = new Set([
     'Italian','Mexican','Indian','Japanese','Korean','Chinese','Thai','Vietnamese',
-    'Mediterranean','American','Healthy','Baking','Drinks','Breakfast',
+    'Mediterranean','American','Healthy','Baking','Drinks',
     'Dessert','French','BBQ','Pizza','Sushi',
   ]);
   const PLACE_TYPES = new Set(['Restaurants','Bars','Cafes & Brunch','Cafes','Date Night','Clubs']);
@@ -568,17 +568,23 @@ window.IG.Renderer = (() => {
         const cuisineVal = quat || ter; // cuisine lives in quat after promotion, or ter for old data
         const signal = [...(post.categorization?.tags || []), post.alt_text || ''].join(' ').toLowerCase();
 
-        // Cafe & Brunch → remap to actual cuisine
-        if (cuisineVal === 'Cafe & Brunch' || cuisineVal === 'Cafes & Brunch') {
-          let remapped = 'American'; // default: eggs, omelette, hash browns, avocado toast
-          if (/pizza/.test(signal))                                              remapped = 'Italian';
-          else if (/pancake|waffle|crepe|bak[ei]|muffin|cake|cookie|sweet/.test(signal)) remapped = 'Baking';
-          else if (/smoothie|acai|grain.?bowl|salad/.test(signal))              remapped = 'Healthy';
+        const BAKING_SIGNAL   = /oatmeal|pancake|waffle|crepe|muffin|bak[ei]|cake|cookie|brownie|dough|batter|sweet|dessert|granola|overnight.?oat/;
+        const BRUNCH_LIKE     = /^(Cafe & Brunch|Cafes & Brunch|Brunch|Breakfast)$/;
+
+        // Brunch / Breakfast / Cafe & Brunch → remap to correct cuisine
+        if (BRUNCH_LIKE.test(cuisineVal)) {
+          let remapped = 'American'; // default: eggs, hash browns, avocado toast
+          if (/pizza/.test(signal))          remapped = 'Italian';
+          else if (BAKING_SIGNAL.test(signal)) remapped = 'Baking';
+          else if (/smoothie|acai|grain.?bowl|salad/.test(signal)) remapped = 'Healthy';
           ter = null; quat = remapped;
         }
         // Healthy + sweet/baking signal → Baking
-        else if (cuisineVal === 'Healthy' &&
-                 /muffin|pancake|waffle|bak[ei]|cake|cookie|brownie|dough|batter|sweet|dessert/.test(signal)) {
+        else if (cuisineVal === 'Healthy' && BAKING_SIGNAL.test(signal)) {
+          ter = null; quat = 'Baking';
+        }
+        // Dessert(s) → Baking
+        else if (/^Desserts?$/.test(cuisineVal)) {
           ter = null; quat = 'Baking';
         }
       }
