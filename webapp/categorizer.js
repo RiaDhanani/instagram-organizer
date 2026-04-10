@@ -116,36 +116,41 @@ Allowed tertiary values — copy letter-for-letter:
                   eggs (any style), omelette, frittata, scrambled eggs, hash browns,
                   avocado toast, eggs benedict — ALL egg/hash brown dishes go here
                   UNLESS the account/caption has a clear non-American cuisine signal
-"Healthy"       — savory, non-sweet recipes tagged healthy: salads, grain bowls, smoothies,
-                  acai bowls, savory wraps — ONLY when savory; sweet → "Baking" instead
-"Baking"        — every baked, sweet, or dessert-style recipe regardless of health claims,
-                  diet label (vegan/healthy/gluten-free), or meal context (breakfast/brunch):
-                  bread, muffins, banana bread, cakes, cookies, brownies, pies, cheesecake,
-                  pancakes, waffles, crepes, sweet oatmeal, overnight oats (sweet), granola,
-                  ice cream, energy balls, protein bars, protein cookies, date balls,
-                  granola bars, bliss balls, no-bake treats, raw desserts
+"Healthy"       — savory, non-sweet recipes: salads (any kind), grain bowls, smoothies,
+                  acai bowls, savory wraps. If ANY tag contains the substring "salad"
+                  (e.g. pestosalad, chickpeasalad) → always "Healthy".
+"Baking"        — SWEET and DESSERT recipes only. A dish must be sweet to go here.
+                  Savory dishes NEVER go in Baking, even if baked in an oven.
+                  Sweet items: muffins, cakes, cookies, brownies, pies, cheesecake,
+                  pancakes, waffles, crepes, sweet oatmeal, granola, ice cream,
+                  energy balls, protein bars, date balls, granola bars, bliss balls,
+                  no-bake treats, raw desserts, banana bread, sweet breads
 "Drinks"        — cocktails, mocktails, juices, coffee, tea, any beverage recipe
 
 ⚠ PRIORITY RULES — apply in this exact order, first match wins:
 
-1. SWEET / BAKING signal → always "Baking", overrides everything including vegan/healthy/breakfast:
-   sweet / dessert / sugar / chocolate / syrup / honey / waffle / pancake / muffin / oatmeal /
-   cake / cookie / brownie / granola / overnight oats / treat / no-bake / dessert
-2. PIZZA → always "Italian" regardless of style or health framing
-3. EGGS / OMELETTE / HASH BROWNS → always "American" unless a non-American cuisine is explicit
-4. CUISINE SIGNAL → use the matching cuisine (Indian, Italian, Mexican, etc.)
+1. "salad" substring in ANY tag (e.g. pestosalad, chickpeasalad, greeksalad) → always "Healthy"
+2. "paneer" or "peri peri" in any tag → always "Indian"
+3. SWEET signal → "Baking" ONLY if the dish is actually sweet/dessert — savory items NEVER go in Baking:
+   sweet / dessert / chocolate / syrup / honey / waffle / pancake / muffin /
+   cake / cookie / brownie / sweet oatmeal / granola / treat / no-bake
+4. PIZZA → always "Italian" regardless of style or health framing
+5. EGGS / OMELETTE / HASH BROWNS → always "American" unless a non-American cuisine is explicit
+6. CUISINE SIGNAL → use the matching cuisine (Indian, Italian, Mexican, etc.)
    — Vegan/healthy labels do NOT change the cuisine: vegan curry → "Indian", vegan tacos → "Mexican"
    — Sandwiches take the cuisine of their filling: Indian sandwich → "Indian", club sandwich → "American"
-5. HEALTHY (savory only) → tagged healthy AND savory AND not baked → "Healthy"
-6. Everything else → pick closest match from the 13 allowed strings
+7. HEALTHY (savory only) → savory AND not sweet AND not a specific cuisine → "Healthy"
+8. Everything else → pick closest match from the 13 allowed strings
 
 "Breakfast", "Brunch", and "Cafe & Brunch" are NOT allowed values — never use them for Recipes.
 
 Examples:
-- Vegan waffle → "Baking"          Sweet oatmeal → "Baking"        Vegan brownie → "Baking"
+- Pesto salad → "Healthy"          Chickpea salad → "Healthy"       Any tag with "salad" → "Healthy"
+- Paneer tikka → "Indian"          Peri peri chicken → "Indian"
+- Vegan waffle → "Baking"          Sweet oatmeal → "Baking"         Vegan brownie → "Baking"
+- Savory bread → cuisine of dish, NOT Baking    Garlic bread → "Italian"
 - Vegan curry → "Indian"           Vegan tacos → "Mexican"          Keto pasta → "Italian"
-- Indian sandwich → "Indian"       Breakfast pizza → "Italian"      Healthy pizza → "Italian"
-- Healthy omelette → "American"    Hash browns → "American"         Vegan omelette → "American"
+- Indian sandwich → "Indian"       Breakfast pizza → "Italian"      Healthy omelette → "American"
 
 Correction table — apply before outputting:
 "Desserts" / "Sweets"          → "Baking"

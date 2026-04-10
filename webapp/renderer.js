@@ -565,22 +565,34 @@ window.IG.Renderer = (() => {
 
       // Fix existing data: reclassify Recipes posts using priority rules
       if (cat === 'Food' && sub === 'Recipes') {
-        const cuisineVal = quat || ter; // cuisine lives in quat after promotion, or ter for old data
-        const signal = [...(post.categorization?.tags || []), post.alt_text || ''].join(' ').toLowerCase();
+        const cuisineVal = quat || ter;
+        const tags = post.categorization?.tags || [];
+        const signal = [...tags, post.alt_text || ''].join(' ').toLowerCase();
+        const SWEET_SIGNAL  = /waffle|pancake|crepe|muffin|bak[ei]|cake|cookie|brownie|sweet|dessert|granola|overnight.?oat|chocolate|syrup|honey|treat|no.?bake/;
+        const BRUNCH_LIKE   = /^(Cafe & Brunch|Cafes & Brunch|Brunch|Breakfast)$/;
 
-        const BAKING_SIGNAL   = /oatmeal|pancake|waffle|crepe|muffin|bak[ei]|cake|cookie|brownie|dough|batter|sweet|dessert|granola|overnight.?oat/;
-        const BRUNCH_LIKE     = /^(Cafe & Brunch|Cafes & Brunch|Brunch|Breakfast)$/;
-
+        // Rule 1: any tag contains "salad" substring → Healthy
+        if (tags.some(t => t.toLowerCase().includes('salad'))) {
+          ter = null; quat = 'Healthy';
+        }
+        // Rule 2: paneer or peri peri in tags → Indian
+        else if (tags.some(t => /paneer|peri.?peri/.test(t.toLowerCase()))) {
+          ter = null; quat = 'Indian';
+        }
         // Brunch / Breakfast / Cafe & Brunch → remap to correct cuisine
-        if (BRUNCH_LIKE.test(cuisineVal)) {
-          let remapped = 'American'; // default: eggs, hash browns, avocado toast
-          if (/pizza/.test(signal))          remapped = 'Italian';
-          else if (BAKING_SIGNAL.test(signal)) remapped = 'Baking';
+        else if (BRUNCH_LIKE.test(cuisineVal)) {
+          let remapped = 'American';
+          if (/pizza/.test(signal))            remapped = 'Italian';
+          else if (SWEET_SIGNAL.test(signal))  remapped = 'Baking';
           else if (/smoothie|acai|grain.?bowl|salad/.test(signal)) remapped = 'Healthy';
           ter = null; quat = remapped;
         }
-        // Healthy + sweet/baking signal → Baking
-        else if (cuisineVal === 'Healthy' && BAKING_SIGNAL.test(signal)) {
+        // Baking but no sweet signal → reclassify as American (savory items never go in Baking)
+        else if (cuisineVal === 'Baking' && !SWEET_SIGNAL.test(signal)) {
+          ter = null; quat = 'American';
+        }
+        // Healthy + sweet signal → Baking
+        else if (cuisineVal === 'Healthy' && SWEET_SIGNAL.test(signal)) {
           ter = null; quat = 'Baking';
         }
         // Dessert(s) → Baking
