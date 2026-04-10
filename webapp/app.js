@@ -29,7 +29,6 @@ const dom = {
   categorizeProgressText: $('categorize-progress-text'),
   pauseBtn: $('pause-btn'),
   webSearchToggle: $('web-search-toggle'),
-  ageWarning: $('age-warning'),
   folderTree: $('folder-tree'),
   postGrid: $('post-grid'),
   gridHeader: $('grid-header'),
@@ -219,7 +218,6 @@ function setupEventListeners() {
       dom.mainLayout.classList.add('hidden');
       dom.categorizeBar.classList.add('hidden');
       dom.recategorizeBtn?.classList.add('hidden');
-      dom.ageWarning.classList.add('hidden');
       dom.categorizeProgress.classList.add('hidden');
       dom.uploadSection.classList.remove('hidden');
     }
@@ -278,7 +276,7 @@ function enterLoadedMode() {
   dom.recategorizeBtn?.classList.add('hidden');
   dom.postCount.textContent = `${state.posts.length} posts`;
 
-  checkAgeWarning();
+
 
   state.selectedPosts = state.posts;
   dom.gridHeader.textContent = `All Posts — ${state.posts.length} (uncategorized)`;
@@ -297,7 +295,7 @@ function enterCategorizedMode() {
   const categorized = state.posts.filter((p) => p.categorization);
   dom.postCount.textContent = `${categorized.length} posts`;
 
-  checkAgeWarning();
+
 
   state.tree = Renderer.buildTree(categorized);
   Renderer.renderTree(state.tree, dom.folderTree, onFolderSelect);
@@ -318,7 +316,7 @@ function enterMixedMode() {
   const uncategorized = state.posts.filter((p) => !p.categorization || p.categorization.category === 'Uncategorized');
   dom.postCount.textContent = `${state.posts.length} posts`;
 
-  checkAgeWarning();
+
 
   if (categorized.length > 0) {
     state.tree = Renderer.buildTree(categorized);
@@ -330,19 +328,6 @@ function enterMixedMode() {
   Renderer.renderGrid(categorized, dom.postGrid);
 }
 
-function checkAgeWarning() {
-  if (!state.rawData?.exported_at) return;
-  const ageHours = (Date.now() - new Date(state.rawData.exported_at).getTime()) / 3600000;
-  if (ageHours > 20) {
-    dom.ageWarning.textContent = `Export is ${Math.round(ageHours)}h old — thumbnail URLs have expired. Categorization will use text descriptions only (still works well).`;
-    dom.ageWarning.classList.remove('hidden');
-  }
-}
-
-function exportAgeHours() {
-  if (!state.rawData?.exported_at) return 0;
-  return (Date.now() - new Date(state.rawData.exported_at).getTime()) / 3600000;
-}
 
 // ─── Folder Selection ─────────────────────────────────────────────────────────
 
@@ -399,11 +384,6 @@ async function startCategorization() {
   dom.pauseBtn.textContent = 'Pause';
   dom.pauseBtn.classList.remove('paused', 'hidden');
 
-  // Skip images if export is older than 20 hours (CDN URLs will be expired)
-  const skipImages = exportAgeHours() > 20;
-  if (skipImages) {
-    dom.categorizeProgressText.textContent = 'Using text-only mode (export is old)…';
-  }
 
   // Only categorize posts that haven't been categorized yet
   const alreadyDone = state.posts.filter(
@@ -453,7 +433,7 @@ async function startCategorization() {
           if (partialResults.length % TREE_REFRESH_EVERY === 0) refreshLiveTree();
         }
       },
-      skipImages,
+      false,
       categorizationController,
       Storage.loadWebSearch(),
       { userApiKey }

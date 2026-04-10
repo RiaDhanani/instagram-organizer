@@ -325,16 +325,6 @@ body {
 .btn-pause:hover { color: var(--text); border-color: var(--text-muted); }
 .btn-pause.paused { color: #4ade80; border-color: #4ade80; }
 
-/* ── Age Warning ─────────────────────────────────────────────────────────────── */
-#age-warning {
-  background: rgba(255, 170, 0, 0.1);
-  border-bottom: 1px solid rgba(255, 170, 0, 0.2);
-  color: #ffaa00;
-  font-size: 12px;
-  padding: 8px 20px;
-  flex-shrink: 0;
-}
-
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
 #sidebar {
   width: var(--sidebar-width);
