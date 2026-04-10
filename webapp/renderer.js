@@ -571,37 +571,39 @@ window.IG.Renderer = (() => {
         const SWEET_SIGNAL  = /waffle|pancake|crepe|muffin|bak[ei]|cake|cookie|brownie|sweet|dessert|granola|overnight.?oat|chocolate|syrup|honey|treat|no.?bake/;
         const BRUNCH_LIKE   = /^(Cafe & Brunch|Cafes & Brunch|Brunch|Breakfast)$/;
 
-        // Rule 1: any tag contains "salad" substring → Healthy
-        if (tags.some(t => t.toLowerCase().includes('salad'))) {
+        const isSweet = SWEET_SIGNAL.test(signal);
+
+        // Sweet signal is highest priority — always Baking regardless of snack/salad tags
+        if (isSweet && (cuisineVal === 'Healthy' || cuisineVal === 'Baking' || cuisineVal === 'Breakfast' || cuisineVal === 'Brunch')) {
+          ter = null; quat = 'Baking';
+        }
+        // Dessert(s) → Baking
+        else if (/^Desserts?$/.test(cuisineVal)) {
+          ter = null; quat = 'Baking';
+        }
+        // salad substring in any tag → Healthy (only if not sweet)
+        else if (!isSweet && tags.some(t => t.toLowerCase().includes('salad'))) {
           ter = null; quat = 'Healthy';
         }
-        // Rule 2: any tag contains "snack" → Healthy
-        else if (tags.some(t => t.toLowerCase().includes('snack'))) {
+        // snack in any tag → Healthy (only if not sweet)
+        else if (!isSweet && tags.some(t => t.toLowerCase().includes('snack'))) {
           ter = null; quat = 'Healthy';
         }
-        // Rule 3: paneer or peri peri in tags → Indian
+        // paneer or peri peri → Indian
         else if (tags.some(t => /paneer|peri.?peri/.test(t.toLowerCase()))) {
           ter = null; quat = 'Indian';
         }
         // Brunch / Breakfast / Cafe & Brunch → remap to correct cuisine
         else if (BRUNCH_LIKE.test(cuisineVal)) {
           let remapped = 'American';
-          if (/pizza/.test(signal))            remapped = 'Italian';
-          else if (SWEET_SIGNAL.test(signal))  remapped = 'Baking';
+          if (/pizza/.test(signal))           remapped = 'Italian';
+          else if (isSweet)                   remapped = 'Baking';
           else if (/smoothie|acai|grain.?bowl|salad/.test(signal)) remapped = 'Healthy';
           ter = null; quat = remapped;
         }
-        // Baking but no sweet signal → reclassify as American (savory items never go in Baking)
-        else if (cuisineVal === 'Baking' && !SWEET_SIGNAL.test(signal)) {
-          ter = null; quat = 'American';
-        }
-        // Healthy + sweet signal → Baking
-        else if (cuisineVal === 'Healthy' && SWEET_SIGNAL.test(signal)) {
-          ter = null; quat = 'Baking';
-        }
-        // Dessert(s) → Baking
-        else if (/^Desserts?$/.test(cuisineVal)) {
-          ter = null; quat = 'Baking';
+        // Baking but no sweet signal → Healthy (savory items never stay in Baking)
+        else if (cuisineVal === 'Baking' && !isSweet) {
+          ter = null; quat = 'Healthy';
         }
       }
 
