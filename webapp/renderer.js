@@ -587,10 +587,9 @@ window.IG.Renderer = (() => {
           else if (/smoothie|acai|grain.?bowl|salad/.test(signal)) remapped = 'Healthy';
           ter = null; quat = remapped;
         }
-        // Savory signal overrides Baking — these are never sweet
-        const SAVORY_OVERRIDE = /broccoli|cauliflower|carrot|spinach|kale|vegetable|veggie|zucchini|potato|cheese(?!cake)|avocado|chickpea|lentil|bean|tofu|chicken(?!cookie)|beef|lamb|pork|fish|shrimp|prawn|egg(?!nog)|bite|appetizer|finger.?food|dip\b/;
-        if (cuisineVal === 'Baking' && (SAVORY_OVERRIDE.test(signal) || !SWEET_SIGNAL.test(signal))) {
-          ter = null; quat = 'Healthy';
+        // Baking but no sweet signal → reclassify as American (savory items never go in Baking)
+        else if (cuisineVal === 'Baking' && !SWEET_SIGNAL.test(signal)) {
+          ter = null; quat = 'American';
         }
         // Healthy + sweet signal → Baking
         else if (cuisineVal === 'Healthy' && SWEET_SIGNAL.test(signal)) {
