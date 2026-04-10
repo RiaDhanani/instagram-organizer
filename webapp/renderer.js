@@ -575,7 +575,11 @@ window.IG.Renderer = (() => {
         if (tags.some(t => t.toLowerCase().includes('salad'))) {
           ter = null; quat = 'Healthy';
         }
-        // Rule 2: paneer or peri peri in tags → Indian
+        // Rule 2: any tag contains "snack" → Healthy
+        else if (tags.some(t => t.toLowerCase().includes('snack'))) {
+          ter = null; quat = 'Healthy';
+        }
+        // Rule 3: paneer or peri peri in tags → Indian
         else if (tags.some(t => /paneer|peri.?peri/.test(t.toLowerCase()))) {
           ter = null; quat = 'Indian';
         }

@@ -154,8 +154,7 @@ Examples:
 
 Correction table — apply before outputting:
 "Desserts" / "Sweets"          → "Baking"
-"Snacks" (sweet/baked)         → "Baking"
-"Snacks" (savory)              → "Healthy"
+"Snacks" (any kind)            → "Healthy"
 "Vegan" / "Vegan Recipes"      → use the actual cuisine or "Healthy" if savory with no cuisine
 "Breakfast" / "Brunch" / "Cafe & Brunch" / "Cafe" → apply priority rules above
 "Asian"                        → pick specific (Japanese/Korean/Chinese/Thai/Vietnamese)
