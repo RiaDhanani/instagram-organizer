@@ -48,7 +48,27 @@ const dom = {
   errorPopupTitle: $('error-popup-title'),
   errorPopupBody: $('error-popup-body'),
   errorPopupClose: $('error-popup-close'),
+  themeBtn: $('theme-btn'),
+  themeIconDark: $('theme-icon-dark'),
+  themeIconLight: $('theme-icon-light'),
 };
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+
+(function initTheme() {
+  if (localStorage.getItem('ig_theme') === 'light') {
+    document.documentElement.classList.add('light');
+    dom.themeIconDark.classList.add('hidden');
+    dom.themeIconLight.classList.remove('hidden');
+  }
+})();
+
+dom.themeBtn.addEventListener('click', () => {
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('ig_theme', isLight ? 'light' : 'dark');
+  dom.themeIconDark.classList.toggle('hidden', isLight);
+  dom.themeIconLight.classList.toggle('hidden', !isLight);
+});
 
 // ─── Error Popup ──────────────────────────────────────────────────────────────
 
