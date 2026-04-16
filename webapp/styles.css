@@ -702,6 +702,12 @@ body {
   border-color: var(--accent-start);
 }
 
+.api-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .form-hint {
   margin-top: 6px;
   font-size: 11px;
