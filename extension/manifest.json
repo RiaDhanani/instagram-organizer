@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Instagram Saved Posts Organizer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Export your Instagram saved posts and organize them with AI",
   "homepage_url": "https://saved-posts-organizer.vercel.app",
   "permissions": ["activeTab", "scripting", "downloads", "storage", "tabs", "windows"],
