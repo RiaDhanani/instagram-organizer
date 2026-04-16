@@ -6,7 +6,7 @@ A Chrome extension and web app that exports your Instagram saved posts and autom
 
 1. **Install the Chrome extension** from the Chrome Web Store
 2. **Open Instagram** → go to your Saved posts → click into any collection
-3. **Click Export** in the extension — the organizer opens automatically
+3. **Click Export** in the extension — buttons appear to **Download JSON** or **Open Organizer** directly
 4. **Auto Categorize** — free server credits included; once exhausted, add your own [OpenRouter API key](https://openrouter.ai/settings/keys) in Settings to continue
 
 Posts are sorted into a folder tree (e.g. Food › Chicago › Restaurants › Italian, Travel › Bali, Wedding › Decor) with tags and a search bar.
@@ -14,10 +14,12 @@ Posts are sorted into a folder tree (e.g. Food › Chicago › Restaurants › I
 ## Features
 
 - One-click export from any Instagram saved collection
-- AI categorization using OpenRouter — a single API hub where you can add any LLM API key (OpenAI, Anthropic, Google, and more)
+- After export: **Download JSON** or **Open Organizer** buttons directly in the extension popup
+- AI categorization powered by [OpenRouter](https://openrouter.ai) (default: GPT-4o mini)
 - Incremental export — only new posts are processed each time
 - Folder tree with categories, subcategories, and tags
 - Search across categories, subcategories, and tags
+- Light and dark theme toggle in the header
 - All data stored locally in your browser — nothing sent to any server except the AI API
 
 ## Setup
@@ -36,11 +38,14 @@ Deployed via Vercel. The `vercel.json` sets `webapp/` as the output directory.
 ## Requirements
 
 - Google Chrome
-- Free categorization credits included — once exhausted, bring your own [OpenRouter API key](https://openrouter.ai/settings/keys) (stored locally, never shared). OpenRouter is a unified API gateway that lets you use models from OpenAI, Anthropic, Google, and others with a single key.
+- Free categorization credits included — once exhausted, add your own API key via **Settings** in the organizer:
+  1. Get a free [OpenRouter API key](https://openrouter.ai/settings/keys)
+  2. To use your existing OpenAI, Anthropic, or Google key, add it as BYOK in [OpenRouter integrations](https://openrouter.ai/settings/integrations) — then paste your OpenRouter key into Settings
+  - Your key is stored locally in your browser and never shared
 
 ## Privacy
 
-All data stays in your browser. The only external service contacted is the AI API (via OpenRouter), called through our proxy during the free tier or directly using your own key. See [Privacy Policy](webapp/privacy.html).
+All data stays in your browser. The only external service contacted is the AI API (via OpenRouter), called through our proxy during the free tier or using your own key once set. See [Privacy Policy](webapp/privacy.html).
 
 ## Tech
 
