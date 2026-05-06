@@ -7,7 +7,9 @@
   "permissions": ["activeTab", "scripting", "downloads", "storage", "tabs", "windows"],
   "host_permissions": [
     "https://www.instagram.com/*",
-    "https://saved-posts-organizer.vercel.app/*"
+    "https://saved-posts-organizer.vercel.app/*",
+    "*://*.cdninstagram.com/*",
+    "*://*.fbcdn.net/*"
   ],
   "background": {
     "service_worker": "background.js"

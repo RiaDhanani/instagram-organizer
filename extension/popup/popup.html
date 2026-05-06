@@ -14,22 +14,26 @@
     </div>
 
     <div id="content">
-      <!-- Progress bar (scraping) -->
-      <div id="progress" style="display:none">
-        <div class="progress-bar">
-          <div class="progress-fill"></div>
-        </div>
-        <p id="progress-text" class="progress-text">Starting…</p>
-      </div>
-
       <!-- Status / result message -->
       <p id="status" class="status"></p>
 
-      <!-- Success card (export completed with new posts) -->
-      <div id="result" style="display:none">
-        <button class="popup-x" id="popup-close-btn" title="Close">✕</button>
-        <div class="result-icon">✓</div>
-        <p class="result-msg" id="result-msg"></p>
+      <!-- Download Posts toggle (shown in ready-first / ready-new) -->
+      <div id="download-section" style="display:none">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-title">Download Posts</span>
+            <span class="toggle-desc">Save posts to your machine while scraping</span>
+          </div>
+          <button class="toggle-switch" id="download-toggle" role="switch" aria-checked="false"></button>
+        </div>
+        <div id="folder-row" style="display:none">
+          <button id="pick-folder-btn" class="btn-folder">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" style="flex-shrink:0">
+              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+            </svg>
+            <span id="folder-name">Pick a folder…</span>
+          </button>
+        </div>
       </div>
 
       <!-- Full-width primary export (first-time user + error with no prior data) -->
@@ -43,13 +47,49 @@
         <button id="action-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
       </div>
 
+      <!-- Scraping view (redesigned) -->
+      <div id="scrape-view" style="display:none">
+        <div class="scrape-stats">
+          <div class="scrape-left">
+            <div class="scrape-spinner"></div>
+            <span class="scrape-label">Scraping…</span>
+          </div>
+          <div class="scrape-right">
+            <span class="scrape-count" id="scrape-count">0</span>
+            <span class="scrape-label">Items Scraped</span>
+          </div>
+        </div>
+        <p id="dl-stats-row" class="dl-stats" style="display:none">
+          <span id="dl-count">0</span> posts saved to folder
+        </p>
+        <div class="scrape-actions">
+          <button id="stop-btn" class="btn-stop">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="flex-shrink:0">
+              <rect width="10" height="10" rx="1.5"/>
+            </svg>
+            Stop
+          </button>
+        </div>
+        <!-- Solo open organizer shown during scraping if user has prior export -->
+        <button id="scrape-organizer-btn" class="btn-action btn-action-link btn-full" style="display:none">
+          Open Organizer
+        </button>
+      </div>
+
+      <!-- Success card (export completed with new posts) -->
+      <div id="result" style="display:none">
+        <button class="popup-x" id="popup-close-btn" title="Close">✕</button>
+        <div class="result-icon">✓</div>
+        <p class="result-msg" id="result-msg"></p>
+      </div>
+
       <!-- Download + open organizer (after successful export) -->
       <div id="result-actions" class="result-actions" style="display:none">
         <button id="download-btn" class="btn-action">Download JSON</button>
         <button id="result-organizer-btn" class="btn-action btn-action-primary">Open Organizer</button>
       </div>
 
-      <!-- Solo open organizer (wrong page / error with prior data / scraping) -->
+      <!-- Solo open organizer (wrong page / error with prior data) -->
       <button id="solo-organizer-btn" class="btn-action btn-action-primary btn-full" style="display:none">
         Open Organizer
       </button>

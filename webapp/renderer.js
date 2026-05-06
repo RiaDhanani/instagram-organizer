@@ -35,7 +35,7 @@ window.IG.Renderer = (() => {
     'teenromance': 'Romance', 'teenromantic': 'Romance',
     'valentinesday': 'Romance', 'valentines': 'Romance', 'valentinesmovie': 'Romance',
     'valentinesdaymovie': 'Romance', 'lovemovie': 'Romance', 'lovemovies': 'Romance',
-    'lovestory': 'Romance', 'lovestory': 'Romance',
+    'lovestory': 'Romance',
 
     // Rom-Com
     'romcom': 'Rom-Com', 'romcoms': 'Rom-Com', 'romanticcomedy': 'Rom-Com',
@@ -305,13 +305,13 @@ window.IG.Renderer = (() => {
     'entryway': 'Entryway', 'foyer': 'Entryway',
     'outdoor': 'Outdoor', 'patio': 'Outdoor', 'backyard': 'Outdoor', 'garden': 'Outdoor',
 
-    // Styles
+    // Styles (minimalist/boho/bohemian/vintage/retro/darkacademia already defined in Fashion above)
     'cozy': 'Cozy', 'hygge': 'Cozy', 'warmandcozy': 'Cozy',
-    'minimalist': 'Minimalist', 'minimal': 'Minimalist', 'cleangirl': 'Minimalist',
+    'minimal': 'Minimalist', 'cleangirl': 'Minimalist',
     'modern': 'Modern', 'contemporary': 'Modern', 'modernhome': 'Modern',
-    'boho': 'Boho', 'bohemian': 'Boho', 'bohomian': 'Boho',
-    'vintage': 'Vintage', 'retro': 'Vintage', 'antique': 'Vintage',
-    'darkacademia': 'Dark Academia', 'moody': 'Dark Academia', 'gothicdecor': 'Dark Academia',
+    'bohomian': 'Boho',
+    'antique': 'Vintage',
+    'moody': 'Dark Academia', 'gothicdecor': 'Dark Academia',
     'scandinavian': 'Scandinavian', 'scandi': 'Scandinavian',
     'japandi': 'Japandi', 'japaneseminimalist': 'Japandi',
     'industrial': 'Industrial', 'industrialstyle': 'Industrial',
@@ -365,11 +365,6 @@ window.IG.Renderer = (() => {
     'roadtrip': 'Nature & Road Trip', 'roadtrips': 'Nature & Road Trip',
     'road trip': 'Nature & Road Trip',
 
-    // ════════════════════════════════════════════════════════════════
-    // MISC
-    // ════════════════════════════════════════════════════════════════
-
-    'tvshows': 'TV Shows', 'tvshow': 'TV Shows', 'webseries': 'TV Shows',
   };
 
   // Prefix rules — checked after exact map misses.
@@ -792,26 +787,20 @@ window.IG.Renderer = (() => {
       card.href = post.post_url;
       card.target = '_blank';
       card.rel = 'noopener noreferrer';
-      card.style.cssText = 'display:flex;flex-direction:column;text-decoration:none;background:#1a1a1a;border-radius:10px;overflow:hidden;border:1px solid #2a2a2a;';
+      card.dataset.url = post.post_url;
 
       const thumb = document.createElement('div');
       thumb.className = 'post-thumb';
-      thumb.style.cssText = 'width:100%;height:160px;background:#1e1e1e;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
 
       if (post.thumbnail_src) {
         const img = document.createElement('img');
-        img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
         img.alt = post.alt_text || '';
         img.loading = 'lazy';
+        img.referrerPolicy = 'no-referrer';
         img.onerror = function () { this.remove(); };
         img.src = post.thumbnail_src;
         thumb.appendChild(img);
       }
-
-      const placeholder = document.createElement('span');
-      placeholder.textContent = '📷';
-      placeholder.style.cssText = 'font-size:28px;opacity:0.15;';
-      thumb.appendChild(placeholder);
 
       if (post.post_type && post.post_type !== 'photo') {
         const badge = document.createElement('span');
@@ -820,20 +809,39 @@ window.IG.Renderer = (() => {
         thumb.appendChild(badge);
       }
 
+      const checkEl = document.createElement('span');
+      checkEl.className = 'post-select-check';
+      checkEl.title = 'Select';
+      checkEl.innerHTML = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>';
+      thumb.appendChild(checkEl);
+
+      const heartBtn = document.createElement('button');
+      heartBtn.className = 'post-heart-btn' + (post.user_favorited ? ' favorited' : '');
+      heartBtn.title = post.user_favorited ? 'Unfavorite' : 'Favorite';
+      heartBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-2.09C4.045 12.459 2 10.08 2 7.232a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.232c0 2.848-2.045 5.227-3.885 6.898a22.045 22.045 0 0 1-2.582 2.09 20.76 20.76 0 0 1-1.162.682l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z"/></svg>';
+      thumb.appendChild(heartBtn);
+
       card.appendChild(thumb);
 
       const info = document.createElement('div');
       info.className = 'post-info';
-      info.style.cssText = 'padding:8px;min-height:32px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;';
 
-      const tags = post.categorization?.tags || [];
-      const cat = post.categorization?.category;
-      if (tags.length > 0) {
+      const aiTags   = post.categorization?.tags || [];
+      const userTags = post.user_tags || [];
+      const cat      = post.categorization?.category;
+
+      if (aiTags.length > 0 || userTags.length > 0) {
         const tagRow = document.createElement('div');
         tagRow.className = 'post-tags';
-        for (const tag of tags.slice(0, 3)) {
+        for (const tag of aiTags.slice(0, 3)) {
           const t = document.createElement('span');
           t.className = 'tag';
+          t.textContent = tag;
+          tagRow.appendChild(t);
+        }
+        for (const tag of userTags.slice(0, 2)) {
+          const t = document.createElement('span');
+          t.className = 'tag user-tag';
           t.textContent = tag;
           tagRow.appendChild(t);
         }
@@ -849,6 +857,14 @@ window.IG.Renderer = (() => {
         const match = post.post_url.match(/\/(p|reel|tv)\/([^/]+)/);
         slug.textContent = match ? `/${match[1]}/${match[2].slice(0, 8)}…` : 'View post';
         info.appendChild(slug);
+      }
+
+      if (post.user_notes || (post.user_tags && post.user_tags.length > 0)) {
+        const noteBtn = document.createElement('span');
+        noteBtn.className = 'post-note-indicator';
+        noteBtn.title = post.user_notes || 'Has custom tags';
+        noteBtn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>';
+        info.appendChild(noteBtn);
       }
 
       card.appendChild(info);

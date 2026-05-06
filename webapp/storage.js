@@ -49,5 +49,25 @@ window.IG.Storage = (() => {
     return localStorage.getItem(API_KEY) || '';
   }
 
-  return { savePosts, loadPosts, clearPosts, saveWebSearch, loadWebSearch, saveApiKey, loadApiKey };
+  const CUSTOM_CATS_KEY = 'ig_custom_cats';
+
+  function loadCustomCats() {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_CATS_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveCustomCats(cats) {
+    localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(cats));
+  }
+
+  function clearCustomCats() {
+    localStorage.removeItem(CUSTOM_CATS_KEY);
+  }
+
+  return {
+    savePosts, loadPosts, clearPosts,
+    saveWebSearch, loadWebSearch,
+    saveApiKey, loadApiKey,
+    loadCustomCats, saveCustomCats, clearCustomCats,
+  };
 })();

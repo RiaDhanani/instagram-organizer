@@ -565,6 +565,7 @@ quinary:    null
   }
 
   async function categorizeAll(posts, onProgress, skipImages = false, controller = {}, enableWebSearch = false, { model, userApiKey } = {}) {
+    if (!model && !userApiKey) model = 'mistralai/mistral-small-3.2';
     const BATCH_SIZE = 10;
     const CONCURRENCY = 3;
     const results = new Array(posts.length);

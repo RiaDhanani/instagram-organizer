@@ -2,22 +2,23 @@
 
 const state = {
   // phases: init | checking | wrong-page | ready-first | ready-new | ready-current
-  //         | scraping | complete-new | complete-none | error
+  //         | scraping | complete-new | error
   phase: 'init',
   postCount: 0,
-  newPostCount: -1,  // -1 = unknown, 0 = none detected, >0 = count
-  posts: null,       // new posts from last export (for Download JSON)
-  allPosts: null,    // all posts ever exported (for Open Organizer)
+  newPostCount: -1,  // -1 = unknown, 0 = none, >0 = count
+  posts: null,
   sourceUrl: '',
   errorMessage: '',
-  incremental: false,
   hasExported: false,
+
+  // Download Posts
+  downloadEnabled: false,
+  folderName: '',
+  downloadCount: 0,
 };
 
 const ui = {
   status:             document.getElementById('status'),
-  progress:           document.getElementById('progress'),
-  progressText:       document.getElementById('progress-text'),
   result:             document.getElementById('result'),
   resultMsg:          document.getElementById('result-msg'),
   resultStatus:       document.getElementById('result-status'),
@@ -29,23 +30,39 @@ const ui = {
   resultOrganizerBtn: document.getElementById('result-organizer-btn'),
   soloOrganizerBtn:   document.getElementById('solo-organizer-btn'),
   downloadBtn:        document.getElementById('download-btn'),
+
+  // Download toggle
+  downloadSection:    document.getElementById('download-section'),
+  downloadToggle:     document.getElementById('download-toggle'),
+  folderRow:          document.getElementById('folder-row'),
+  pickFolderBtn:      document.getElementById('pick-folder-btn'),
+  folderName:         document.getElementById('folder-name'),
+
+  // Scraping view
+  scrapeView:         document.getElementById('scrape-view'),
+  scrapeCount:        document.getElementById('scrape-count'),
+  dlStatsRow:         document.getElementById('dl-stats-row'),
+  dlCount:            document.getElementById('dl-count'),
+  stopBtn:            document.getElementById('stop-btn'),
+  scrapeOrganizerBtn: document.getElementById('scrape-organizer-btn'),
 };
 
 function render() {
   // Hide everything
-  ui.status.style.display        = 'none';
-  ui.progress.style.display      = 'none';
-  ui.result.style.display        = 'none';
-  ui.exportBtn.style.display     = 'none';
-  ui.actionRow.style.display     = 'none';
-  ui.resultActions.style.display = 'none';
+  ui.status.style.display          = 'none';
+  ui.result.style.display          = 'none';
+  ui.exportBtn.style.display       = 'none';
+  ui.actionRow.style.display       = 'none';
+  ui.resultActions.style.display   = 'none';
   ui.soloOrganizerBtn.style.display = 'none';
+  ui.downloadSection.style.display  = 'none';
+  ui.scrapeView.style.display       = 'none';
 
   // Reset mutable button states
-  ui.status.className         = 'status';
-  ui.exportBtn.textContent    = 'Export All Posts';
-  ui.exportBtn.disabled       = false;
-  ui.actionExportBtn.disabled = false;
+  ui.status.className            = 'status';
+  ui.exportBtn.textContent       = 'Export All Posts';
+  ui.exportBtn.disabled          = false;
+  ui.actionExportBtn.disabled    = false;
   ui.actionExportBtn.textContent = 'Export';
 
   switch (state.phase) {
@@ -68,6 +85,8 @@ function render() {
     case 'ready-first':
       ui.status.style.display = '';
       ui.status.textContent = 'Ready to export all your saved posts.';
+      ui.downloadSection.style.display = 'block';
+      renderDownloadToggle();
       ui.exportBtn.style.display = 'block';
       break;
 
@@ -76,6 +95,8 @@ function render() {
       ui.status.textContent = state.newPostCount > 0
         ? `${state.newPostCount} new post${state.newPostCount !== 1 ? 's' : ''} detected.`
         : 'Ready to export.';
+      ui.downloadSection.style.display = 'block';
+      renderDownloadToggle();
       ui.actionRow.style.display = 'flex';
       break;
 
@@ -87,27 +108,26 @@ function render() {
       break;
 
     case 'scraping':
-      ui.progress.style.display = 'block';
-      ui.progressText.textContent = state.postCount > 0
-        ? `${state.postCount} posts collected…`
-        : 'Starting…';
-      if (state.hasExported) ui.soloOrganizerBtn.style.display = 'block';
+      ui.scrapeView.style.display = 'block';
+      ui.scrapeCount.textContent = state.postCount;
+      if (state.downloadEnabled) {
+        ui.dlStatsRow.style.display = 'block';
+        ui.dlCount.textContent = state.downloadCount;
+      } else {
+        ui.dlStatsRow.style.display = 'none';
+      }
+      if (state.hasExported) {
+        ui.scrapeOrganizerBtn.style.display = 'block';
+      } else {
+        ui.scrapeOrganizerBtn.style.display = 'none';
+      }
       break;
 
     case 'complete-new':
       ui.result.style.display = 'block';
-      ui.resultMsg.textContent = state.incremental
-        ? `Found ${state.postCount} new post${state.postCount !== 1 ? 's' : ''}`
-        : `Exported ${state.postCount} post${state.postCount !== 1 ? 's' : ''}`;
+      ui.resultMsg.textContent = `Exported ${state.postCount} post${state.postCount !== 1 ? 's' : ''}`;
       ui.resultActions.style.display = 'flex';
       ui.resultStatus.textContent = '';
-      break;
-
-    case 'complete-none':
-      ui.status.style.display = '';
-      ui.status.textContent = 'No new posts since last export.';
-      ui.actionRow.style.display = 'flex';
-      ui.actionExportBtn.disabled = true;
       break;
 
     case 'error':
@@ -115,7 +135,6 @@ function render() {
       ui.status.className = 'status error';
       ui.status.textContent = state.errorMessage || 'Something went wrong.';
       if (state.hasExported) {
-        // Show Try Again alongside Open Organizer
         ui.actionRow.style.display = 'flex';
         ui.actionExportBtn.textContent = 'Try Again';
       } else {
@@ -126,17 +145,92 @@ function render() {
   }
 }
 
+function renderDownloadToggle() {
+  ui.downloadToggle.setAttribute('aria-checked', state.downloadEnabled ? 'true' : 'false');
+  ui.folderRow.style.display = state.downloadEnabled ? 'block' : 'none';
+  if (state.folderName) {
+    ui.folderName.textContent = state.folderName;
+    ui.pickFolderBtn.classList.add('has-folder');
+  } else {
+    ui.folderName.textContent = 'Pick a folder…';
+    ui.pickFolderBtn.classList.remove('has-folder');
+  }
+}
+
+// ── IndexedDB helpers ──────────────────────────────────────────────────────────
+
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ig-downloader', 1);
+    req.onupgradeneeded = (e) => e.target.result.createObjectStore('handles');
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = reject;
+  });
+}
+
+async function storeDirectoryHandle(handle) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(handle, 'downloadDir');
+    tx.oncomplete = resolve;
+    tx.onerror = reject;
+  });
+}
+
+async function loadDirectoryHandle() {
+  try {
+    const db = await openHandleDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('handles', 'readonly');
+      const req = tx.objectStore('handles').get('downloadDir');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 async function startScrape() {
+  // If download is enabled, verify we have a folder with permission
+  if (state.downloadEnabled) {
+    const handle = await loadDirectoryHandle();
+    if (!handle) {
+      ui.resultStatus.textContent = 'Pick a folder first.';
+      return;
+    }
+    try {
+      const perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') {
+        const granted = await handle.requestPermission({ mode: 'readwrite' });
+        if (granted !== 'granted') {
+          ui.resultStatus.textContent = 'Folder permission denied.';
+          return;
+        }
+      }
+    } catch {
+      ui.resultStatus.textContent = 'Could not access folder.';
+      return;
+    }
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   state.sourceUrl = tab.url;
   state.phase = 'scraping';
   state.postCount = 0;
+  state.downloadCount = 0;
   render();
 
   chrome.runtime.sendMessage(
-    { action: 'START_SCRAPE', tabId: tab.id, sourceUrl: tab.url },
+    {
+      action: 'START_SCRAPE',
+      tabId: tab.id,
+      sourceUrl: tab.url,
+      downloadEnabled: state.downloadEnabled,
+    },
     (response) => {
       if (!response || !response.success) {
         state.phase = 'error';
@@ -147,6 +241,27 @@ async function startScrape() {
       pollForCompletion();
     }
   );
+}
+
+async function pickFolder() {
+  if (!window.showDirectoryPicker) {
+    ui.resultStatus.textContent = 'Folder picker not supported by your browser.';
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await storeDirectoryHandle(handle);
+    state.folderName = handle.name;
+    renderDownloadToggle();
+  } catch {
+    // User cancelled — silently ignore
+  }
+}
+
+function stopScrape() {
+  ui.stopBtn.disabled = true;
+  ui.stopBtn.textContent = 'Stopping…';
+  chrome.runtime.sendMessage({ action: 'STOP_SCRAPE' });
 }
 
 function triggerDownload() {
@@ -163,7 +278,7 @@ function triggerDownload() {
 }
 
 function triggerOpenWebapp() {
-  const posts = state.allPosts || state.posts;
+  const posts = state.posts;
   if (!posts) return;
   ui.resultStatus.textContent = 'Opening…';
   chrome.runtime.sendMessage(
@@ -190,25 +305,35 @@ document.getElementById('export-btn').addEventListener('click', startScrape);
 document.getElementById('action-export-btn').addEventListener('click', startScrape);
 document.getElementById('download-btn').addEventListener('click', triggerDownload);
 document.getElementById('popup-close-btn').addEventListener('click', () => window.close());
+document.getElementById('stop-btn').addEventListener('click', stopScrape);
+document.getElementById('pick-folder-btn').addEventListener('click', pickFolder);
+
+document.getElementById('download-toggle').addEventListener('click', () => {
+  state.downloadEnabled = !state.downloadEnabled;
+  renderDownloadToggle();
+  // If enabling and no folder yet, prompt immediately
+  if (state.downloadEnabled && !state.folderName) {
+    pickFolder();
+  }
+});
 
 [
   document.getElementById('action-organizer-btn'),
   document.getElementById('result-organizer-btn'),
   document.getElementById('solo-organizer-btn'),
+  document.getElementById('scrape-organizer-btn'),
 ].forEach(btn => btn.addEventListener('click', triggerOpenWebapp));
 
 // ── State helpers ─────────────────────────────────────────────────────────────
 
 const STALE_MS = 3 * 60 * 1000;
 
-function loadComplete(postCount, posts, allPosts, sourceUrl, incremental) {
-  state.postCount   = postCount;
+function loadComplete(posts, sourceUrl) {
+  state.postCount   = posts.length;
   state.posts       = posts;
-  state.allPosts    = allPosts || posts;
   state.sourceUrl   = sourceUrl || '';
-  state.incremental = !!incremental;
   state.hasExported = true;
-  state.phase = (incremental && postCount === 0) ? 'complete-none' : 'complete-new';
+  state.phase       = 'complete-new';
   render();
 }
 
@@ -237,7 +362,7 @@ async function detectNewPosts(tabId, knownUrls) {
         }))];
       },
     });
-    if (!urls || urls.length === 0) return -1; // page not loaded yet
+    if (!urls || urls.length === 0) return -1;
     return urls.filter(url => !knownSet.has(url)).length;
   } catch {
     return -1;
@@ -247,6 +372,12 @@ async function detectNewPosts(tabId, knownUrls) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
+  // Restore saved folder name if any
+  try {
+    const handle = await loadDirectoryHandle();
+    if (handle) state.folderName = handle.name;
+  } catch {}
+
   const stored = await chrome.storage.local.get([
     'ig_scrape_done', 'ig_pending_posts', 'igScrapeProgress', 'ig_scrape_error',
   ]);
@@ -266,13 +397,21 @@ async function init() {
   if (stored.ig_scrape_done && Date.now() - stored.ig_scrape_done.timestamp < 5 * 60 * 1000) {
     await chrome.storage.local.remove('ig_scrape_done');
     const p = stored.ig_pending_posts;
-    if (p) { loadComplete(p.posts.length, p.posts, p.all_posts, p.source_url, p.incremental); return; }
+    if (p) { loadComplete(p.posts, p.source_url); return; }
   }
 
   // ── Scrape in progress ───────────────────────────────────────────────────────
   if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
     state.phase = 'scraping';
     state.postCount = stored.igScrapeProgress.count;
+    state.downloadCount = stored.igScrapeProgress.downloadCount || 0;
+    state.downloadEnabled = stored.igScrapeProgress.downloadEnabled || false;
+    // Load previous export so "Open Organizer" button works during scraping
+    if (stored.ig_pending_posts) {
+      const p = stored.ig_pending_posts;
+      state.posts = p.posts;
+      state.sourceUrl = p.source_url || '';
+    }
     render();
     pollForCompletion();
     return;
@@ -287,9 +426,7 @@ async function init() {
     const knownUrls = p?.all_post_urls;
 
     if (knownUrls?.length) {
-      // Returning user — detect new posts before showing export option
       state.hasExported = true;
-      state.allPosts = p.all_posts || p.posts;
       state.posts = p.posts;
       state.sourceUrl = p.source_url;
       state.phase = 'checking';
@@ -300,7 +437,6 @@ async function init() {
       state.phase = count !== 0 ? 'ready-new' : 'ready-current';
       render();
     } else {
-      // First-time user
       state.phase = 'ready-first';
       render();
     }
@@ -310,7 +446,7 @@ async function init() {
   // ── Not on a collection page — show last result if available ─────────────────
   if (stored.ig_pending_posts) {
     const p = stored.ig_pending_posts;
-    loadComplete(p.posts.length, p.posts, p.all_posts, p.source_url, p.incremental);
+    loadComplete(p.posts, p.source_url);
     return;
   }
 
@@ -341,9 +477,10 @@ function pollForCompletion() {
       clearInterval(pollTimer);
       await chrome.storage.local.remove('ig_scrape_done');
       const p = stored.ig_pending_posts;
-      if (p) loadComplete(p.posts.length, p.posts, p.all_posts, p.source_url, p.incremental);
+      if (p) loadComplete(p.posts, p.source_url);
     } else if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
       state.postCount = stored.igScrapeProgress.count;
+      state.downloadCount = stored.igScrapeProgress.downloadCount || 0;
       render();
     } else {
       clearInterval(pollTimer);

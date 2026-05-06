@@ -53,7 +53,7 @@ body {
 .btn-primary {
   width: 100%;
   padding: 11px;
-  background: linear-gradient(135deg, #e1306c 0%, #833ab4 100%);
+  background: linear-gradient(135deg, #5b72e8 0%, #1a2bb8 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -78,7 +78,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #e1306c, #833ab4);
+  background: linear-gradient(90deg, #5b72e8, #1a2bb8);
   width: 30%;
   border-radius: 3px;
   animation: slide 1.4s ease-in-out infinite;
@@ -118,7 +118,7 @@ body {
 .result-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #e1306c, #833ab4);
+  background: linear-gradient(135deg, #5b72e8, #1a2bb8);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -155,7 +155,7 @@ body {
 .btn-action:hover { background: #252525; color: #fff; border-color: #444; }
 
 .btn-action-primary {
-  background: linear-gradient(135deg, #e1306c 0%, #833ab4 100%);
+  background: linear-gradient(135deg, #5b72e8 0%, #1a2bb8 100%);
   border: none;
   color: white;
   font-weight: 600;
@@ -184,3 +184,200 @@ body {
   min-height: 16px;
   line-height: 1.4;
 }
+
+/* ── Download Posts toggle ───────────────────────────────────────────────────── */
+
+#download-section {
+  background: #161616;
+  border: 1px solid #252525;
+  border-radius: 10px;
+  padding: 11px 12px;
+  margin-bottom: 12px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.toggle-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+.toggle-desc {
+  font-size: 11px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.toggle-switch {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+  background: #333;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  margin-top: 1px;
+  padding: 0;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #888;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch[aria-checked="true"] {
+  background: linear-gradient(135deg, #5b72e8, #1a2bb8);
+}
+
+.toggle-switch[aria-checked="true"]::after {
+  background: #fff;
+  transform: translateX(16px);
+}
+
+#folder-row {
+  margin-top: 9px;
+}
+
+.btn-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 7px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.btn-folder:hover { background: #222; border-color: #3a3a3a; color: #888; }
+
+.btn-folder.has-folder { color: #bbb; border-color: #3a3a3a; }
+.btn-folder.has-folder:hover { color: #ddd; }
+
+/* ── Scraping view ───────────────────────────────────────────────────────────── */
+
+.scrape-stats {
+  display: flex;
+  align-items: center;
+  padding: 18px 0 14px;
+}
+
+.scrape-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-right: 1px solid #222;
+  padding-right: 10px;
+}
+
+.scrape-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding-left: 10px;
+}
+
+.scrape-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid #2a2a2a;
+  border-top-color: #5b72e8;
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.scrape-count {
+  font-size: 42px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.scrape-label {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+}
+
+.dl-stats {
+  text-align: center;
+  font-size: 11px;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.dl-stats span {
+  color: #888;
+  font-weight: 600;
+}
+
+.scrape-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-stop {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  background: linear-gradient(135deg, #5b72e8 0%, #1a2bb8 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-stop:hover { opacity: 0.88; }
+.btn-stop:active { opacity: 0.75; }
+
+.btn-action-link {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 12px;
+  margin-top: 4px;
+  padding: 6px;
+}
+
+.btn-action-link:hover { background: #1a1a1a; color: #888; border-color: transparent; }
