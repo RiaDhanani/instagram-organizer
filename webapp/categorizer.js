@@ -485,7 +485,7 @@ quinary:    null
   function buildPostContent(post) {
     const content = [];
     if (post.thumbnail_src) {
-      content.push({ type: 'image_url', image_url: { url: post.thumbnail_src, detail: 'low' } });
+      content.push({ type: 'image_url', image_url: { url: post.thumbnail_src } });
     }
     const lines = [];
     if (post.alt_text) lines.push(`Alt text: ${post.alt_text}`);
@@ -503,7 +503,7 @@ quinary:    null
     posts.forEach((post, i) => {
       content.push({ type: 'text', text: `\n--- Post ${i + 1} ---` });
       if (post.thumbnail_src) {
-        content.push({ type: 'image_url', image_url: { url: post.thumbnail_src, detail: 'low' } });
+        content.push({ type: 'image_url', image_url: { url: post.thumbnail_src } });
       }
       const lines = [];
       if (post.alt_text) lines.push(`Alt text: ${post.alt_text}`);
@@ -565,7 +565,7 @@ quinary:    null
   }
 
   async function categorizeAll(posts, onProgress, skipImages = false, controller = {}, enableWebSearch = false, { model, userApiKey } = {}) {
-    if (!model && !userApiKey) model = 'mistralai/mistral-small-3.2-24b-instruct';
+    if (!model && !userApiKey) model = 'mistralai/mistral-small-3.1-24b-instruct';
     const BATCH_SIZE = 10;
     const CONCURRENCY = 3;
     const results = new Array(posts.length);

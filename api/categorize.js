@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
   }
 
   const upstreamUrl = 'https://openrouter.ai/api/v1/chat/completions';
-  const upstreamModel = model || 'mistralai/mistral-small-3.2-24b-instruct';
+  const upstreamModel = model || 'mistralai/mistral-small-3.1-24b-instruct';
   const upstreamHeaders = {
     Authorization: `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
