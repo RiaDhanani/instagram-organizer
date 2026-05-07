@@ -15,6 +15,7 @@ const state = {
   downloadEnabled: false,
   folderName: '',
   downloadCount: 0,
+  downloading: false,
 };
 
 const ui = {
@@ -45,6 +46,7 @@ const ui = {
   dlCount:            document.getElementById('dl-count'),
   stopBtn:            document.getElementById('stop-btn'),
   scrapeOrganizerBtn: document.getElementById('scrape-organizer-btn'),
+  scrapePhaseLabel:   document.getElementById('scrape-phase-label'),
 };
 
 function render() {
@@ -110,14 +112,18 @@ function render() {
     case 'scraping':
       ui.scrapeView.style.display = 'block';
       ui.scrapeCount.textContent = state.postCount;
+      ui.scrapePhaseLabel.textContent = state.downloading ? 'Downloading…' : 'Scraping…';
       if (state.downloadEnabled) {
         ui.dlStatsRow.style.display = 'block';
         ui.dlCount.textContent = state.downloadCount;
       } else {
         ui.dlStatsRow.style.display = 'none';
       }
-      if (state.hasExported) {
+      if (state.downloading || state.hasExported) {
         ui.scrapeOrganizerBtn.style.display = 'block';
+        ui.scrapeOrganizerBtn.className = state.downloading
+          ? 'btn-action btn-action-primary btn-full'
+          : 'btn-action btn-action-link btn-full';
       } else {
         ui.scrapeOrganizerBtn.style.display = 'none';
       }
@@ -261,7 +267,10 @@ async function pickFolder() {
 function stopScrape() {
   ui.stopBtn.disabled = true;
   ui.stopBtn.textContent = 'Stopping…';
-  chrome.runtime.sendMessage({ action: 'STOP_SCRAPE' });
+  chrome.runtime.sendMessage({ action: 'STOP_SCRAPE' }, () => {
+    clearInterval(pollTimer);
+    init();
+  });
 }
 
 function triggerDownload() {
@@ -406,7 +415,7 @@ async function init() {
     state.postCount = stored.igScrapeProgress.count;
     state.downloadCount = stored.igScrapeProgress.downloadCount || 0;
     state.downloadEnabled = stored.igScrapeProgress.downloadEnabled || false;
-    // Load previous export so "Open Organizer" button works during scraping
+    state.downloading = stored.igScrapeProgress.downloading || false;
     if (stored.ig_pending_posts) {
       const p = stored.ig_pending_posts;
       state.posts = p.posts;
@@ -481,6 +490,7 @@ function pollForCompletion() {
     } else if (stored.igScrapeProgress && Date.now() - stored.igScrapeProgress.timestamp < STALE_MS) {
       state.postCount = stored.igScrapeProgress.count;
       state.downloadCount = stored.igScrapeProgress.downloadCount || 0;
+      state.downloading = stored.igScrapeProgress.downloading || false;
       render();
     } else {
       clearInterval(pollTimer);

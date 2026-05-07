@@ -67,6 +67,7 @@ async function downloadPost(post, index, dirHandle) {
         count: scraping.posts.length,
         downloadCount: scraping.downloadCount,
         downloadEnabled: scraping.downloadEnabled,
+        downloading: true,
         timestamp: Date.now(),
       },
     });
@@ -327,15 +328,7 @@ async function finalizeScrape() {
     return;
   }
 
-  // Run downloads now that post_type and video_src are final. Doing this here
-  // (rather than per-chunk during scraping) avoids races and double-downloads:
-  // a post collected first as photo from the DOM and later re-typed as reel by
-  // the API would otherwise produce both a .jpg and a .mp4. Parallel workers
-  // keep total time low.
-  if (scraping.downloadEnabled && !scraping.stopped) {
-    await downloadAllPosts(posts);
-  }
-
+  // Save posts immediately so the organizer can be opened before downloads finish.
   const payload = {
     exported_at: new Date().toISOString(),
     source_url: scraping.sourceUrl,
@@ -343,10 +336,22 @@ async function finalizeScrape() {
     posts: posts,
     all_post_urls: posts.map(p => p.post_url),
   };
-  await chrome.storage.local.set({
-    ig_pending_posts: payload,
-    ig_scrape_done: { postCount: posts.length, timestamp: Date.now() },
-  });
+  await chrome.storage.local.set({ ig_pending_posts: payload });
+
+  if (scraping.downloadEnabled && !scraping.stopped) {
+    await chrome.storage.local.set({
+      igScrapeProgress: {
+        count: posts.length,
+        downloadCount: 0,
+        downloadEnabled: true,
+        downloading: true,
+        timestamp: Date.now(),
+      },
+    });
+    await downloadAllPosts(posts);
+  }
+
+  await chrome.storage.local.set({ ig_scrape_done: { postCount: posts.length, timestamp: Date.now() } });
   await chrome.storage.local.remove('igScrapeProgress');
 }
 
@@ -460,9 +465,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // ── Stop Scrape ───────────────────────────────────────────────────────────────
   if (message.action === 'STOP_SCRAPE') {
-    // stopped=true is checked in both finalizeScrape (skips downloads) and
-    // the downloadAllPosts worker loop (exits mid-download).
     scraping.stopped = true;
+    // Remove progress immediately so reopening the popup doesn't show stale scraping state.
+    chrome.storage.local.remove('igScrapeProgress');
     if (scraping.active) {
       clearTimeout(scraping.chunkTimer);
       finalizeScrape();

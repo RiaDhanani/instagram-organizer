@@ -1168,7 +1168,7 @@ async function startCategorization() {
     dom.categorizeProgress.classList.add('hidden');
 
     if (err.outOfCredits || err.modelRateLimited) {
-      dom.creditsKeyInput.value = '';
+      dom.creditsKeyInput.value = Storage.loadApiKey() || '';
       dom.creditsPopupStatus.classList.add('hidden');
       dom.creditsPopup.classList.remove('hidden');
     } else {

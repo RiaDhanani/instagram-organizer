@@ -52,7 +52,7 @@
         <div class="scrape-stats">
           <div class="scrape-left">
             <div class="scrape-spinner"></div>
-            <span class="scrape-label">Scraping…</span>
+            <span class="scrape-label" id="scrape-phase-label">Scraping…</span>
           </div>
           <div class="scrape-right">
             <span class="scrape-count" id="scrape-count">0</span>
@@ -62,6 +62,9 @@
         <p id="dl-stats-row" class="dl-stats" style="display:none">
           <span id="dl-count">0</span> posts saved to folder
         </p>
+        <button id="scrape-organizer-btn" class="btn-action btn-action-link btn-full" style="display:none">
+          Open Organizer
+        </button>
         <div class="scrape-actions">
           <button id="stop-btn" class="btn-stop">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" style="flex-shrink:0">
@@ -70,10 +73,6 @@
             Stop
           </button>
         </div>
-        <!-- Solo open organizer shown during scraping if user has prior export -->
-        <button id="scrape-organizer-btn" class="btn-action btn-action-link btn-full" style="display:none">
-          Open Organizer
-        </button>
       </div>
 
       <!-- Success card (export completed with new posts) -->
